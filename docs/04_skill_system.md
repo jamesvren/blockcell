@@ -23,13 +23,16 @@
 
 ## 技能的组成
 
-每个技能是一个目录，包含三个文件：
+每个技能是一个目录，支持三种形态（**纯 MD / Rhai / Python**）。
+
+常见情况下，一个技能目录包含以下文件（可选组合）：
 
 ```
 skills/stock_monitor/
 ├── meta.yaml      # 元数据：触发词、描述、权限
 ├── SKILL.md       # 操作手册：给 LLM 看的说明书
-└── SKILL.rhai     # 编排脚本：确定性的执行逻辑
+├── SKILL.rhai     # 编排脚本：确定性的执行逻辑（可选）
+└── SKILL.py       # Python 脚本：以 python3 直接执行（可选）
 ```
 
 这三个文件各有分工：
@@ -39,6 +42,45 @@ skills/stock_monitor/
 | `meta.yaml` | 触发词匹配、权限声明 | 系统 |
 | `SKILL.md` | 操作规范、参数说明、示例 | LLM |
 | `SKILL.rhai` | 确定性编排逻辑 | Rhai 引擎 |
+| `SKILL.py` | Python 运行时脚本 | Python 解释器 |
+
+注意：
+- **纯 MD 技能**：只有 `SKILL.md`（可选 `meta.yaml`），用于“提示词驱动”的流程说明，不含可执行脚本。
+- **脚本技能**：存在 `SKILL.rhai` 或 `SKILL.py` 时，可在某些场景走“脚本直跑”路径（例如定时任务、WebUI 测试）。
+
+---
+
+## 三种技能形态（MD / Rhai / Python）
+
+### 1) 纯 MD（Prompt-only）
+
+当技能目录只有 `SKILL.md` 时，它的作用是：
+- 提供该技能的**操作手册**（目标、步骤、参数、fallback）
+- 当用户输入命中 `meta.yaml.triggers` 时，系统会把该 `SKILL.md` 注入到上下文，指导 LLM 选择工具完成任务
+
+这种形态适合：
+- 逻辑不需要强确定性
+- 主要靠工具组合即可完成
+
+### 2) Rhai（SKILL.rhai）
+
+当技能目录包含 `SKILL.rhai` 时，它可以承载**确定性编排逻辑**。
+
+在实现上，blockcell 通过 `SkillDispatcher` 执行 Rhai，并在脚本里注入一组宿主函数（典型的有）：
+- `call_tool(name, params)` / `call_tool_json(name, json)`
+- `set_output(value)` / `set_output_json(json)`
+- `log(msg)` / `log_warn(msg)`
+- `is_error(result)` / `get_field(map, key)`
+
+### 3) Python（SKILL.py）
+
+当技能目录包含 `SKILL.py` 时，blockcell 可以直接以 Python 运行该技能脚本。
+
+Python 运行契约（与源码实现保持一致）：
+- **执行方式**：`python3 SKILL.py`（若无 python3 则尝试 python）
+- **输入**：用户输入通过 **stdin** 以纯文本传入
+- **上下文**：额外 JSON 上下文通过环境变量 `BLOCKCELL_SKILL_CONTEXT` 提供
+- **输出**：脚本将最终用户可读结果写入 **stdout**（stderr 会被视为错误信息的一部分）
 
 ---
 
@@ -261,6 +303,43 @@ if change < -threshold {
 ```
 
 AI 会调用 `community_hub` 工具搜索并下载技能。
+
+常用动作：
+- `trending` / `search_skills` / `skill_info`
+- `install_skill`：下载安装到 `~/.blockcell/workspace/skills/<skill_name>/`
+- `uninstall_skill` / `list_installed`
+
+---
+
+## 从社区获取技能：Blockcell Hub / OpenClaw GitHub 导入（WebUI）
+
+blockcell 目前支持两条“社区分发”路径：
+
+### 1) Blockcell Hub（Agent 侧 + WebUI）
+
+Agent 侧通过内置工具 `community_hub` 完成技能发现与安装。
+
+WebUI 的“Community”页签则通过 Gateway 提供的代理接口一键安装：
+- `GET /v1/hub/skills`：拉取 Hub 上的 trending 列表
+- `POST /v1/hub/skills/:name/install`：下载 zip 并解压到 `~/.blockcell/workspace/skills/<name>/`
+
+### 2) 从 OpenClaw 社区 GitHub/Zip 导入（WebUI External）
+
+WebUI 的“External”页签调用：
+- `POST /v1/skills/install-external`，参数：`{ "url": "..." }`
+
+该导入接口支持 3 种 URL 形态：
+- **GitHub 目录**：`https://github.com/<owner>/<repo>/tree/<branch>/<path>`（通过 GitHub Contents API 递归抓取文本文件）
+- **GitHub 单文件**：`https://github.com/<owner>/<repo>/blob/<branch>/<path>`（自动转 raw）
+- **Zip 包**：任意可下载的 `.zip` URL（解压后读取其中文本文件）
+
+导入逻辑概览：
+- 先写入“导入暂存目录（staging）”，再触发自进化把 OpenClaw 技能转换为 blockcell 的 `SKILL.rhai` / `SKILL.py` / `SKILL.md`
+- 会尝试从 OpenClaw 的 `SKILL.md` YAML frontmatter 解析 `name/description` 并生成最小 `meta.yaml`
+
+安全与限制：
+- 仅允许 http/https，禁止 localhost / .local 等内网目标
+- 限制最大下载体积（默认 5MB）、最大文件数（默认 200），GitHub 目录递归深度限制
 
 ---
 

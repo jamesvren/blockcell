@@ -23,13 +23,16 @@ These **multi-step tasks with logic and branching** are what skills are meant to
 
 ## What a skill contains
 
-Each skill is a directory containing three files:
+Each skill is a directory, and it supports three shapes (**Prompt-only MD / Rhai / Python**).
+
+In practice, a skill directory may contain the following files (optional combinations):
 
 ```
 skills/stock_monitor/
 ├── meta.yaml      # metadata: triggers, description, permissions
 ├── SKILL.md       # playbook: instructions for the LLM
-└── SKILL.rhai     # orchestration: deterministic execution logic
+├── SKILL.rhai     # orchestration: deterministic execution logic (optional)
+└── SKILL.py       # Python script: executed directly by python3 (optional)
 ```
 
 These files have different responsibilities:
@@ -39,6 +42,41 @@ These files have different responsibilities:
 | `meta.yaml` | trigger matching, permission declarations | system |
 | `SKILL.md` | operating rules, parameters, examples | LLM |
 | `SKILL.rhai` | deterministic orchestration logic | Rhai engine |
+| `SKILL.py` | Python runtime script | Python interpreter |
+
+Notes:
+- **Prompt-only skills**: `SKILL.md` (and optionally `meta.yaml`) only. This is an instruction layer that guides the LLM.
+- **Scripted skills**: when `SKILL.rhai` or `SKILL.py` exists, blockcell can run the script directly in certain scenarios (e.g. cron jobs, WebUI tests).
+
+---
+
+## Three shapes (MD / Rhai / Python)
+
+### 1) Prompt-only (MD)
+
+When a skill directory only has `SKILL.md`, it works as an **operating playbook**:
+- It describes goals, steps, parameters and fallbacks
+- When the user input matches `meta.yaml.triggers`, blockcell injects the `SKILL.md` content into the prompt to guide tool usage
+
+### 2) Rhai (SKILL.rhai)
+
+When `SKILL.rhai` exists, it carries **deterministic orchestration**.
+
+Implementation-wise, blockcell executes Rhai via `SkillDispatcher` and injects host functions into the script, including:
+- `call_tool(name, params)` / `call_tool_json(name, json)`
+- `set_output(value)` / `set_output_json(json)`
+- `log(msg)` / `log_warn(msg)`
+- `is_error(result)` / `get_field(map, key)`
+
+### 3) Python (SKILL.py)
+
+When `SKILL.py` exists, blockcell can run it directly.
+
+Python runtime contract (matches the implementation):
+- **Execution**: `python3 SKILL.py` (fallback to `python` if needed)
+- **Input**: user input is passed via **stdin** as plain text
+- **Context**: additional JSON context is provided in env var `BLOCKCELL_SKILL_CONTEXT`
+- **Output**: the final user-facing result is written to **stdout** (stderr contributes to error messages)
 
 ---
 
@@ -259,6 +297,47 @@ You: Search and install a DeFi monitoring skill from the community hub
 ```
 
 The AI will call the `community_hub` tool to search and download the skill.
+
+Common actions:
+- `trending` / `search_skills` / `skill_info`
+- `install_skill`: installs into `~/.blockcell/workspace/skills/<skill_name>/`
+- `uninstall_skill` / `list_installed`
+
+---
+
+## Getting skills from communities: Blockcell Hub / OpenClaw GitHub import (WebUI)
+
+blockcell currently supports two “community distribution” paths.
+
+### 1) Blockcell Hub (Agent side + WebUI)
+
+On the agent side, the built-in `community_hub` tool is used for discovery and installation.
+
+In the WebUI, the “Community” tab is backed by Gateway proxy APIs:
+- `GET /v1/hub/skills`: fetch trending list from Hub
+- `POST /v1/hub/skills/:name/install`: download zip and extract into `~/.blockcell/workspace/skills/<name>/`
+
+### 2) Import from OpenClaw community (WebUI External)
+
+The WebUI “External” tab calls:
+- `POST /v1/skills/install-external` with body `{ "url": "..." }`
+
+Supported URL formats:
+- **GitHub directory**: `https://github.com/<owner>/<repo>/tree/<branch>/<path>` (recursively fetched via GitHub Contents API)
+- **GitHub single file**: `https://github.com/<owner>/<repo>/blob/<branch>/<path>` (auto-converted to raw)
+- **Zip bundle**: any downloadable `.zip` URL
+
+Import behavior (high-level):
+- Downloads into an import **staging** directory first
+- Tries to parse OpenClaw `SKILL.md` YAML frontmatter (`name`/`description`) and generates a minimal `meta.yaml`
+- Triggers the self-evolution pipeline to convert the imported OpenClaw skill into blockcell format:
+  - `.rhai` → `SKILL.rhai`
+  - `.py` → `SKILL.py`
+  - docs-only → improved `SKILL.md` + `meta.yaml`
+
+Security and limits:
+- Only http/https are allowed; localhost and `.local` are blocked
+- Max download size (default 5MB), max file count (default 200), and a GitHub directory recursion depth limit
 
 ---
 
