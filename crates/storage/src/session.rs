@@ -142,4 +142,56 @@ impl SessionStore {
 
         Ok(())
     }
+
+    /// Set session display name in _meta.json, only if not already set.
+    /// `content` is the user's first message; we take the first ~30 chars as the name.
+    pub fn set_session_name_if_new(&self, session_key: &str, content: &str) -> Option<String> {
+        let meta_path = self.paths.sessions_dir().join("_meta.json");
+        let file_key = session_key.replace(':', "_");
+
+        let mut meta: serde_json::Map<String, serde_json::Value> = if meta_path.exists() {
+            std::fs::read_to_string(&meta_path)
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default()
+        } else {
+            serde_json::Map::new()
+        };
+
+        // Skip if already has a name
+        if meta
+            .get(&file_key)
+            .and_then(|v| v.get("name"))
+            .and_then(|v| v.as_str())
+            .is_some()
+        {
+            return None;
+        }
+
+        // Take first ~30 chars (by char boundary), strip whitespace
+        let trimmed = content.trim();
+        let name: String = trimmed.chars().take(30).collect();
+        let name = name.trim_end().to_string();
+        let name = if trimmed.chars().count() > 30 {
+            format!("{}…", name)
+        } else {
+            name
+        };
+
+        if name.is_empty() {
+            return None;
+        }
+
+        meta.insert(
+            file_key,
+            serde_json::json!({ "name": name.clone() }),
+        );
+
+        let _ = std::fs::write(
+            &meta_path,
+            serde_json::to_string_pretty(&meta).unwrap_or_default(),
+        );
+        
+        Some(name)
+    }
 }

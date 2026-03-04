@@ -9,7 +9,8 @@ export type WsEventType =
   | 'thinking'
   | 'alert_triggered'
   | 'skills_updated'
-  | 'evolution_triggered';
+  | 'evolution_triggered'
+  | 'session_renamed';
 
 export interface WsEvent {
   type: WsEventType;
@@ -32,6 +33,7 @@ export interface WsEvent {
   alert_value?: number;
   new_skills?: string[];
   media?: string[];
+  name?: string;
 }
 
 export type DisconnectReason = 'none' | 'auth_failed' | 'network_error' | 'server_down' | 'connecting';

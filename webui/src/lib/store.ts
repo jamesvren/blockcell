@@ -99,6 +99,38 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     switch (event.type) {
+      case 'session_renamed': {
+        if (event.chat_id && event.name) {
+          const normalize = (id: string) => id.replace(/:/g, '_');
+          const normalizedId = normalize(event.chat_id);
+          
+          set((state) => {
+            const exists = state.sessions.some(s => s.id === normalizedId);
+            if (exists) {
+              return {
+                sessions: state.sessions.map(s => 
+                  s.id === normalizedId ? { ...s, name: event.name! } : s
+                )
+              };
+            } else {
+              // New session that isn't in the list yet, add it to the top
+              return {
+                sessions: [
+                  {
+                    id: normalizedId,
+                    name: event.name!,
+                    message_count: 1,
+                    updated_at: new Date().toISOString()
+                  },
+                  ...state.sessions
+                ]
+              };
+            }
+          });
+        }
+        break;
+      }
+
       case 'message_done': {
         // Check if there's a streaming assistant message to finalize
         const lastMsg = state.messages[state.messages.length - 1];

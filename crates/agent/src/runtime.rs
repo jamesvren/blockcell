@@ -1095,6 +1095,23 @@ impl AgentRuntime {
         // Load session history
         let mut history = self.session_store.load(&session_key)?;
 
+        // Auto-set session display name from first user message
+        if history.is_empty() {
+            if let Some(new_name) = self.session_store.set_session_name_if_new(&session_key, &msg.content) {
+                // If this is a WS chat, notify the client immediately to update the sidebar
+                if msg.channel == "ws" {
+                    if let Some(ref event_tx) = self.event_tx {
+                        let event = serde_json::json!({
+                            "type": "session_renamed",
+                            "chat_id": msg.chat_id,
+                            "name": new_name,
+                        });
+                        let _ = event_tx.send(event.to_string());
+                    }
+                }
+            }
+        }
+
         // ── Intent classification (Method A) ──
         let classifier = crate::intent::IntentClassifier::new();
         let intents = classifier.classify(&msg.content);
