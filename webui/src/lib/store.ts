@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { SessionInfo, ChatMsg } from './api';
 import type { WsEvent, ConnectionState, DisconnectReason } from './ws';
-import { notifyTaskCompleted, notifyAlertTriggered } from './notifications';
+import { notifyTaskCompleted, notifyAlertTriggered, notifySystemEvent } from './notifications';
 
 function normalizeSessionId(id: string) {
   return id.replace(/:/g, '_');
@@ -276,8 +276,80 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ isLoading: false });
         break;
       }
+
+      case 'system_event_notification': {
+        const sysStore = useSystemEventsStore.getState();
+        sysStore.addEvent({
+          id: event.event_id || `evt_${Date.now()}`,
+          kind: 'notification',
+          priority: event.priority || 'Normal',
+          title: event.title || 'System Event',
+          body: event.body || '',
+          timestamp: Date.now(),
+          agentId: event.agent_id,
+        });
+        if (event.priority === 'Critical' || event.priority === 'High') {
+          notifySystemEvent(event.title || 'System Event', event.body || '', event.priority);
+        }
+        break;
+      }
+
+      case 'system_event_summary': {
+        const sysStore2 = useSystemEventsStore.getState();
+        const summaryBody = event.compact_text || (event.items || []).map((i: any) => i.title || i.body).join('\n');
+        sysStore2.addEvent({
+          id: `summary_${Date.now()}`,
+          kind: 'summary',
+          priority: 'Normal',
+          title: event.title || 'Session Summary',
+          body: summaryBody,
+          timestamp: Date.now(),
+          agentId: event.agent_id,
+          items: event.items,
+        });
+        break;
+      }
     }
   },
+}));
+
+// ── System Events Store ──
+export interface SystemEventItem {
+  id: string;
+  kind: 'notification' | 'summary';
+  priority: string;
+  title: string;
+  body: string;
+  timestamp: number;
+  agentId?: string;
+  items?: any[];
+  read?: boolean;
+}
+
+interface SystemEventsState {
+  events: SystemEventItem[];
+  unreadCount: number;
+  addEvent: (event: SystemEventItem) => void;
+  markAllRead: () => void;
+  clearAll: () => void;
+}
+
+const MAX_SYSTEM_EVENTS = 100;
+
+export const useSystemEventsStore = create<SystemEventsState>((set) => ({
+  events: [],
+  unreadCount: 0,
+  addEvent: (event) =>
+    set((s) => {
+      const next = [event, ...s.events].slice(0, MAX_SYSTEM_EVENTS);
+      return { events: next, unreadCount: s.unreadCount + 1 };
+    }),
+  markAllRead: () =>
+    set((s) => ({
+      events: s.events.map((e) => ({ ...e, read: true })),
+      unreadCount: 0,
+    })),
+  clearAll: () => set({ events: [], unreadCount: 0 }),
 }));
 
 // ── Connection Store ──

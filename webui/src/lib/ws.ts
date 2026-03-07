@@ -10,7 +10,9 @@ export type WsEventType =
   | 'alert_triggered'
   | 'skills_updated'
   | 'evolution_triggered'
-  | 'session_renamed';
+  | 'session_renamed'
+  | 'system_event_notification'
+  | 'system_event_summary';
 
 export interface WsEvent {
   type: WsEventType;
@@ -35,6 +37,13 @@ export interface WsEvent {
   new_skills?: string[];
   media?: string[];
   name?: string;
+  // system event fields
+  event_id?: string;
+  priority?: string;
+  title?: string;
+  body?: string;
+  compact_text?: string;
+  items?: any[];
 }
 
 export type DisconnectReason = 'none' | 'auth_failed' | 'network_error' | 'server_down' | 'connecting';

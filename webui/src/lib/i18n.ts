@@ -591,6 +591,12 @@ const translations: Record<Locale, Record<string, string>> = {
     'persona.aiPlaceholder': 'Enter optimization request, AI will edit the content above... (⌘Enter to send)',
     'persona.aiHint': 'Will send current file content + your request to AI, then replace the editor content',
 
+    // System Events
+    'sysEvents.title': 'System Events',
+    'sysEvents.empty': 'No events yet',
+    'sysEvents.emptyHint': 'System notifications and summaries will appear here',
+    'sysEvents.clearAll': 'Clear all',
+
     // Settings — Network Proxy
     'settings.networkProxy': 'Global Network Proxy',
     'settings.proxyToggle': 'Proxy Switch',
@@ -1178,6 +1184,12 @@ const translations: Record<Locale, Record<string, string>> = {
     'persona.generate': '生成',
     'persona.aiPlaceholder': '输入优化要求，AI 将直接修改上方内容… （⌘Enter 发送）',
     'persona.aiHint': '将发送当前文件内容 + 您的要求给 AI，完成后替换编辑器内容',
+
+    // System Events
+    'sysEvents.title': '系统动态',
+    'sysEvents.empty': '暂无事件',
+    'sysEvents.emptyHint': '系统通知和运行摘要将显示在这里',
+    'sysEvents.clearAll': '清空全部',
 
     // Settings — Network Proxy
     'settings.networkProxy': '全局网络代理',

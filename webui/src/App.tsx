@@ -19,6 +19,7 @@ import { LLMPage } from './components/llm/llm-page';
 import { ChannelsPage } from './components/channels/channels-page';
 import { SkillsPage } from './components/skills/skills-page';
 import { SetupWizard } from './components/setup-wizard';
+import { SystemEventsPanel } from './components/system-events-panel';
 import { ThemeProvider } from './components/theme-provider';
 import { useSidebarStore, useChatStore, useConnectionStore } from './lib/store';
 import { wsManager } from './lib/ws';
@@ -116,10 +117,14 @@ export default function App() {
         <Sidebar />
         <main
           className={cn(
-            'flex-1 flex flex-col overflow-hidden transition-all duration-200',
+            'flex-1 flex flex-col overflow-hidden transition-all duration-200 relative',
             isOpen ? 'ml-64' : 'ml-16'
           )}
         >
+          {/* System events bell — top right corner */}
+          <div className="absolute top-3 right-4 z-30">
+            <SystemEventsPanel />
+          </div>
           {activePage === 'chat' && <ChatPage />}
           {activePage === 'tasks' && <TasksPage />}
           {activePage === 'dashboard' && <DashboardPage />}

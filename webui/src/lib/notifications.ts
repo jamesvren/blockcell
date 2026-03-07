@@ -48,6 +48,15 @@ export function notifyAlertTriggered(alertName: string, value?: number) {
   );
 }
 
+export function notifySystemEvent(title: string, body: string, priority?: string) {
+  const icon = priority === 'Critical' ? '🚨' : priority === 'High' ? '⚠️' : '📋';
+  sendNotification(
+    `${icon} ${title}`,
+    body,
+    { tag: `system-event-${Date.now()}` }
+  );
+}
+
 export function notifyTaskCompleted(taskLabel: string, success: boolean) {
   sendNotification(
     success ? 'Task Completed' : 'Task Failed',
