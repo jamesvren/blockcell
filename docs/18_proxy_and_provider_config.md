@@ -10,6 +10,8 @@
 
 首次运行 `blockcell onboard` 会自动生成此文件。也可以用 `blockcell config edit` 直接编辑。
 
+WebUI 的完整配置编辑器也会直接读取/保存原始 `config.json5` 文本；保存时由后端校验 JSON5，因此注释和排版可以保留在原始编辑路径中。
+
 ---
 
 ## 一、Provider 配置
@@ -163,7 +165,7 @@
 {
   "agents": {
     "defaults": {
-      "model": "anthropic/claude-sonnet-4-20250514",
+      "model": "",
       "provider": null,
       "maxTokens": 8192,
       "temperature": 0.7,
@@ -180,7 +182,7 @@
 
 | 字段 | 默认值 | 说明 |
 |------|--------|------|
-| `model` | `anthropic/claude-sonnet-4-20250514` | 主模型名称 |
+| `model` | `""` | 主模型名称（默认空字符串，通常会在 `setup` 时写入实际模型） |
 | `provider` | null | 显式指定 provider（不指定则从 model 前缀推断） |
 | `maxTokens` | 8192 | 每次 LLM 调用的最大输出 token 数 |
 | `temperature` | 0.7 | 采样温度（0.0 ~ 1.0） |
@@ -328,7 +330,7 @@ Telegram 渠道有独立的代理配置，与 LLM provider 代理分开设置：
 
 ## 五、使用 CLI 快速修改配置
 
-无需手动编辑 JSON，可用 `config set` 命令修改：
+无需手动编辑 JSON5，可用 `config set` 命令修改：
 
 ```bash
 # 设置全局代理

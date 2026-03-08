@@ -78,3 +78,4 @@ blockcell doctor
 - 当前 agent 绑定到哪个 profile
 - `intentRouter` 是否通过校验
 - 是否引用了未注册的工具名
+- 如果 profile 里引用了 MCP 工具，MCP server / tool 名称是否与当前 `mcp.json` + `mcp.d` 合并结果一致

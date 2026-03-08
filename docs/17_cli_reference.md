@@ -222,7 +222,7 @@ blockcell mcp add custom --raw --name custom --command uvx --arg my-mcp-server
 blockcell mcp disable github
 ```
 
-**说明：** MCP 配置变更默认在重启 `blockcell agent` 或 `blockcell gateway` 后生效。
+**说明：** MCP 配置文件是独立的 `mcp.json` / `mcp.d/*.json`（当前为严格 JSON，不是 JSON5）；配置变更默认在重启 `blockcell agent` 或 `blockcell gateway` 后生效。
 
 ---
 
@@ -274,7 +274,7 @@ blockcell config <SUBCOMMAND>
 
 ### config show
 
-显示当前完整配置（JSON 格式）。
+显示当前完整配置（以 pretty-printed JSON 形式输出；配置文件本身可写为 JSON5）。
 
 ```bash
 blockcell config show
@@ -305,7 +305,7 @@ blockcell config get network.proxy
 
 ### config set
 
-按点分隔路径设置配置项（自动识别 JSON 类型）。
+按点分隔路径设置配置项（自动识别 JSON5 / 标量类型；解析失败时回退为字符串）。
 
 ```bash
 blockcell config set <KEY> <VALUE>

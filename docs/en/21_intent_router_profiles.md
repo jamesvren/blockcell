@@ -1,4 +1,6 @@
-# intentRouter Multi-Profile Guide
+# Article 21: intentRouter Multi-Profile Guide
+
+> Series: *In-Depth Analysis of the Open Source Project “blockcell”* — Article 21
 
 `intentRouter` is now the **single configuration entry point** for intent-to-tool mapping in blockcell.
 
@@ -78,3 +80,11 @@ Check:
 - which profile each agent resolves to
 - whether `intentRouter` validation passes
 - whether any tool names are invalid or unregistered
+- whether MCP-related names referenced by the profile actually exist in the merged `mcp.json` + `mcp.d/*.json` view
+- whether the agent's `allowedMcpServers` / `allowedMcpTools` filters accidentally hide tools you expected to see
+
+---
+
+*Previous: [Provider Pool](./20_provider_pool.md)*
+
+*Index: [Series directory](./00_index.md)*

@@ -43,7 +43,12 @@ blockcell mcp list
 
 ### 方式二：直接编辑文件
 
+如果你使用 `blockcell mcp add github`，当前版本生成的模板里会写入 `${env:GITHUB_PERSONAL_ACCESS_TOKEN}` 这个**字面量占位符**。使用前请手动打开 `mcp.d/github.json`，把它替换成真实 token，或删除该键改为依赖父进程环境。
+
+
 例如创建 `~/.blockcell/mcp.d/github.json`：
+
+> 注意：`mcp.json` / `mcp.d/*.json` 当前使用**严格 JSON**，不是 JSON5；`env` 中的值会被原样传给子进程，blockcell 当前不会展开 `${env:VAR}` 这种占位语法。
 
 ```json
 {
@@ -51,7 +56,7 @@ blockcell mcp list
   "command": "npx",
   "args": ["-y", "@modelcontextprotocol/server-github"],
   "env": {
-    "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_PERSONAL_ACCESS_TOKEN}"
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN"
   },
   "enabled": true,
   "autoStart": true
