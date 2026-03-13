@@ -1667,6 +1667,7 @@ impl Config {
             "dingtalk" => self.channels.dingtalk.enabled,
             "wecom" => self.channels.wecom.enabled,
             "lark" => self.channels.lark.enabled,
+            "qq" => self.channels.qq.enabled,
             _ => false,
         }
     }

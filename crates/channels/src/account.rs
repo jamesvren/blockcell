@@ -448,6 +448,7 @@ pub fn listener_labels(config: &Config, channel: &str) -> Vec<String> {
         "dingtalk" => dingtalk_listener_configs(config),
         "wecom" => wecom_listener_configs(config),
         "lark" => lark_scoped_configs(config),
+        "qq" => qq_listener_configs(config),
         _ => Vec::new(),
     }
     .into_iter()
