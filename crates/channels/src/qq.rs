@@ -25,7 +25,6 @@ mod op_code {
     pub const DISPATCH: u8 = 0;
     pub const HEARTBEAT: u8 = 1;
     pub const IDENTIFY: u8 = 2;
-    pub const RESUME: u8 = 6;
     pub const RECONNECT: u8 = 7;
     pub const INVALID_SESSION: u8 = 9;
     pub const HELLO: u8 = 10;
@@ -37,9 +36,6 @@ mod op_code {
 // ---------------------------------------------------------------------------
 
 mod intents {
-    pub const GUILDS: u32 = 1 << 0;
-    pub const GUILD_MEMBERS: u32 = 1 << 1;
-    pub const GUILD_MESSAGES: u32 = 1 << 9;
     pub const GROUP_AND_C2C_EVENT: u32 = 1 << 25;
     pub const PUBLIC_GUILD_MESSAGES: u32 = 1 << 30;
 }
