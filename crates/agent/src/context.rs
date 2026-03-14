@@ -17,6 +17,7 @@ pub enum InteractionMode {
 pub struct ActiveSkillContext {
     pub name: String,
     pub prompt_md: String,
+    pub inject_prompt_md: bool,
     pub tools: Vec<String>,
     pub fallback_message: Option<String>,
 }
@@ -210,9 +211,16 @@ impl ContextBuilder {
         let manager = self.skill_manager.as_ref()?;
         let skill = manager.match_skill(user_input, disabled_skills)?;
         let prompt_md = skill.load_md()?;
+        let inject_prompt_md = skill
+            .meta
+            .execution
+            .as_ref()
+            .map(|execution| execution.normalized_kind() == "markdown")
+            .unwrap_or(true);
         Some(ActiveSkillContext {
             name: skill.name.clone(),
             prompt_md,
+            inject_prompt_md,
             tools: skill.meta.effective_tools(),
             fallback_message: skill
                 .meta
@@ -239,9 +247,16 @@ impl ContextBuilder {
             return None;
         }
         let prompt_md = skill.load_md()?;
+        let inject_prompt_md = skill
+            .meta
+            .execution
+            .as_ref()
+            .map(|execution| execution.normalized_kind() == "markdown")
+            .unwrap_or(true);
         Some(ActiveSkillContext {
             name: skill.name.clone(),
             prompt_md,
+            inject_prompt_md,
             tools: skill.meta.effective_tools(),
             fallback_message: skill
                 .meta
@@ -404,9 +419,13 @@ impl ContextBuilder {
 
         if let Some(skill) = active_skill {
             prompt.push_str(&format!("## Active Skill: {}\n", skill.name));
-            prompt.push_str("The user's input matches this installed skill. Follow the skill's instructions below. Prefer the skill's scoped tools and avoid unrelated tools.\n\n");
-            prompt.push_str(&skill.prompt_md);
-            prompt.push_str("\n\n");
+            if skill.inject_prompt_md {
+                prompt.push_str("The user's input matches this installed skill. Follow the skill's instructions below. Prefer the skill's scoped tools and avoid unrelated tools.\n\n");
+                prompt.push_str(&skill.prompt_md);
+                prompt.push_str("\n\n");
+            } else {
+                prompt.push_str("The user's input matches this installed skill. Use the skill's scoped tools and avoid unrelated tools.\n\n");
+            }
             if let Some(fallback_message) = &skill.fallback_message {
                 prompt.push_str("## Skill Fallback\n");
                 prompt.push_str(fallback_message);
@@ -844,5 +863,77 @@ impl ContextBuilder {
 
     fn load_file_if_exists<P: AsRef<Path>>(&self, path: P) -> Option<String> {
         std::fs::read_to_string(path).ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_resolve_active_skill_by_name_disables_prompt_injection_for_structured_skill() {
+        let base =
+            std::env::temp_dir().join(format!("blockcell-context-test-{}", uuid::Uuid::new_v4()));
+        let paths = Paths::with_base(base);
+        let skill_dir = paths.skills_dir().join("structured_demo");
+        fs::create_dir_all(&skill_dir).expect("create skill dir");
+        fs::write(
+            skill_dir.join("meta.yaml"),
+            r#"
+name: structured_demo
+description: structured demo
+triggers:
+  - structured demo
+execution:
+  kind: python
+  entry: SKILL.py
+  dispatch_kind: argv
+  summary_mode: llm
+"#,
+        )
+        .expect("write meta");
+        fs::write(skill_dir.join("SKILL.md"), "structured skill manual").expect("write skill md");
+
+        let builder = ContextBuilder::new(paths, Config::default());
+
+        let ctx = builder
+            .resolve_active_skill_by_name("structured_demo", &HashSet::new())
+            .expect("active skill should resolve");
+
+        assert!(!ctx.inject_prompt_md);
+    }
+
+    #[test]
+    fn test_build_system_prompt_skips_skill_md_when_prompt_injection_disabled() {
+        let builder = ContextBuilder::new(
+            Paths::with_base(
+                std::env::temp_dir()
+                    .join(format!("blockcell-context-test-{}", uuid::Uuid::new_v4())),
+            ),
+            Config::default(),
+        );
+        let active_skill = ActiveSkillContext {
+            name: "structured_demo".to_string(),
+            prompt_md: "DO NOT INCLUDE".to_string(),
+            inject_prompt_md: false,
+            tools: vec!["finance_api".to_string()],
+            fallback_message: Some("fallback".to_string()),
+        };
+
+        let prompt = builder.build_system_prompt_for_mode_with_channel(
+            InteractionMode::Skill,
+            Some(&active_skill),
+            &HashSet::new(),
+            &HashSet::new(),
+            "cli",
+            "",
+            &[],
+            &[],
+        );
+
+        assert!(prompt.contains("## Active Skill: structured_demo"));
+        assert!(!prompt.contains("DO NOT INCLUDE"));
+        assert!(prompt.contains("fallback"));
     }
 }

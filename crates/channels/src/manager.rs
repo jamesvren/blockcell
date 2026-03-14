@@ -512,7 +512,11 @@ impl ChannelManager {
 
         let listeners = crate::account::listener_labels(&self.config, channel);
         if !listeners.is_empty() {
-            let noun = if listeners.len() == 1 { "listener" } else { "listeners" };
+            let noun = if listeners.len() == 1 {
+                "listener"
+            } else {
+                "listeners"
+            };
             return (
                 true,
                 format!(
@@ -533,14 +537,7 @@ impl ChannelManager {
 
     pub fn get_status(&self) -> Vec<(String, bool, String)> {
         let channels = [
-            "telegram",
-            "whatsapp",
-            "feishu",
-            "slack",
-            "discord",
-            "dingtalk",
-            "wecom",
-            "lark",
+            "telegram", "whatsapp", "feishu", "slack", "discord", "dingtalk", "wecom", "lark",
         ];
 
         channels
@@ -648,7 +645,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_get_status_uses_multi_account_listener_labels() {
         let mut config = Config::default();
@@ -671,7 +667,14 @@ mod tests {
             .find(|(name, _, _)| name == "telegram")
             .expect("telegram status should exist");
 
-        assert!(telegram.1, "telegram should be active when account listener exists");
-        assert!(telegram.2.contains("telegram:main"), "unexpected detail: {}", telegram.2);
+        assert!(
+            telegram.1,
+            "telegram should be active when account listener exists"
+        );
+        assert!(
+            telegram.2.contains("telegram:main"),
+            "unexpected detail: {}",
+            telegram.2
+        );
     }
 }

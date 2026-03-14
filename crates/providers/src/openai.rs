@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use blockcell_core::config::ToolCallMode;
-use blockcell_core::types::{ChatMessage, LLMResponse, StreamChunk, ToolCallAccumulator, ToolCallRequest};
+use blockcell_core::types::{
+    ChatMessage, LLMResponse, StreamChunk, ToolCallAccumulator, ToolCallRequest,
+};
 use blockcell_core::{Error, Result};
 use futures::StreamExt;
 use reqwest::Client;
@@ -964,7 +966,11 @@ impl Provider for OpenAIProvider {
 
             if !native_tool_calls.is_empty() || tools.is_empty() {
                 return Ok(LLMResponse {
-                    content: if content.is_empty() { None } else { Some(content) },
+                    content: if content.is_empty() {
+                        None
+                    } else {
+                        Some(content)
+                    },
                     reasoning_content,
                     tool_calls: native_tool_calls,
                     finish_reason: choice.finish_reason.unwrap_or_else(|| "stop".to_string()),
@@ -1057,15 +1063,14 @@ impl Provider for OpenAIProvider {
         let url = format!("{}/chat/completions", self.api_base);
         let mode = Self::mode_from_u8(self.tool_call_mode.load(Ordering::Relaxed));
 
-        let (api_messages, api_tools) = if !tools.is_empty()
-            && !matches!(mode, ToolCallMode::Text | ToolCallMode::None)
-        {
-            (messages.to_vec(), tools.to_vec())
-        } else if !tools.is_empty() {
-            (Self::inject_tools_into_messages(messages, tools), vec![])
-        } else {
-            (messages.to_vec(), vec![])
-        };
+        let (api_messages, api_tools) =
+            if !tools.is_empty() && !matches!(mode, ToolCallMode::Text | ToolCallMode::None) {
+                (messages.to_vec(), tools.to_vec())
+            } else if !tools.is_empty() {
+                (Self::inject_tools_into_messages(messages, tools), vec![])
+            } else {
+                (messages.to_vec(), vec![])
+            };
 
         let request = StreamRequest {
             model: self.model.clone(),
@@ -1180,8 +1185,7 @@ impl Provider for OpenAIProvider {
                                             for tc in tool_call_deltas {
                                                 let idx = tc.index;
 
-                                                let acc =
-                                                    tool_calls.entry(idx).or_default();
+                                                let acc = tool_calls.entry(idx).or_default();
                                                 if let Some(id) = &tc.id {
                                                     acc.id = id.clone();
                                                     let _ = tx

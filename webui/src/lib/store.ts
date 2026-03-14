@@ -278,6 +278,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       case 'message_done': {
         // Check if there's a streaming assistant message to finalize
         const lastMsg = state.messages[state.messages.length - 1];
+        const highlight =
+          state.pendingFocusSessionId === state.currentSessionId
+          && !!state.pendingFocusText
+          && (event.content || '').includes(state.pendingFocusText);
         if (lastMsg?.role === 'assistant' && lastMsg.streaming) {
           state.updateLastAssistantMessage((m) => ({
             ...m,
@@ -286,6 +290,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
             media: event.media && event.media.length > 0
               ? [...new Set([...(m.media || []), ...event.media])]
               : m.media,
+          }));
+        } else if (
+          lastMsg?.role === 'assistant'
+          && !lastMsg.streaming
+          && (lastMsg.content || '') === (event.content || '')
+        ) {
+          state.updateLastAssistantMessage((m) => ({
+            ...m,
+            media: event.media && event.media.length > 0
+              ? [...new Set([...(m.media || []), ...event.media])]
+              : m.media,
+            highlight: m.highlight || highlight,
           }));
         } else {
           // New complete message
@@ -296,10 +312,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             timestamp: Date.now(),
             streaming: false,
             media: event.media && event.media.length > 0 ? event.media : undefined,
-            highlight:
-              state.pendingFocusSessionId === state.currentSessionId
-              && !!state.pendingFocusText
-              && (event.content || '').includes(state.pendingFocusText),
+            highlight,
           });
         }
         if (

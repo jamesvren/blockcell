@@ -217,7 +217,8 @@ pub(super) async fn handle_tasks(
             }
         },
     );
-    let tasks_json = serde_json::to_value(&filtered_tasks).unwrap_or(serde_json::Value::Array(vec![]));
+    let tasks_json =
+        serde_json::to_value(&filtered_tasks).unwrap_or(serde_json::Value::Array(vec![]));
 
     Json(TasksResponse {
         queued,
