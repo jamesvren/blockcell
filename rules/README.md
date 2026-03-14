@@ -12,7 +12,7 @@
 
 看这里：
 
-- [01-prompt-only-skill-development.md](/Users/apple/rustdev/magicbot/blockcell/rules/01-prompt-only-skill-development.md)
+- [01-prompt-only-skill-development.md](01-prompt-only-skill-development.md)
 
 ### 2. Rhai
 
@@ -24,7 +24,7 @@
 
 看这里：
 
-- [02-rhai-skill-development.md](/Users/apple/rustdev/magicbot/blockcell/rules/02-rhai-skill-development.md)
+- [02-rhai-skill-development.md](02-rhai-skill-development.md)
 
 ### 3. Python
 
@@ -35,7 +35,7 @@
 
 看这里：
 
-- [03-python-skill-development.md](/Users/apple/rustdev/magicbot/blockcell/rules/03-python-skill-development.md)
+- [03-python-skill-development.md](03-python-skill-development.md)
 
 ## 当前推荐原则
 
