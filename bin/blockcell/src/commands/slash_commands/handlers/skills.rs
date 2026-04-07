@@ -305,7 +305,7 @@ fn print_skills_status(paths: &blockcell_core::Paths) -> String {
         }
     }
 
-    content.push_str("\n");
+    content.push('\n');
     content
 }
 

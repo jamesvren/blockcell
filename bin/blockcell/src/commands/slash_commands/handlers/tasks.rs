@@ -74,7 +74,7 @@ impl SlashCommand for TasksCommand {
             }
         }
 
-        content.push_str("\n");
+        content.push('\n');
 
         CommandResult::Handled(CommandResponse::text(content))
     }

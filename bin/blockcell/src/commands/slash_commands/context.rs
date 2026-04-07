@@ -14,6 +14,7 @@ pub struct CommandSource {
     /// 会话 ID
     pub chat_id: String,
     /// 用户 ID (可选)
+    #[allow(dead_code)] // TODO: 用于未来的权限检查
     pub sender_id: Option<String>,
 }
 
@@ -64,6 +65,7 @@ pub struct CommandContext {
 
 impl CommandContext {
     /// 创建测试用上下文
+    #[allow(dead_code)] // 用于单元测试
     pub fn test_context() -> Self {
         Self {
             source: CommandSource {
@@ -118,16 +120,19 @@ impl CommandContext {
     }
 
     /// 判断是否为 CLI 渠道
+    #[allow(dead_code)] // TODO: 用于未来的渠道特定逻辑
     pub fn is_cli(&self) -> bool {
         self.source.channel == "cli"
     }
 
     /// 判断是否为 WebSocket 渠道
+    #[allow(dead_code)] // TODO: 用于未来的渠道特定逻辑
     pub fn is_websocket(&self) -> bool {
         self.source.channel == "ws"
     }
 
     /// 判断是否为外部 Channel 渠道
+    #[allow(dead_code)] // TODO: 用于未来的渠道特定逻辑
     pub fn is_external_channel(&self) -> bool {
         !self.is_cli() && !self.is_websocket()
     }
@@ -140,6 +145,7 @@ pub enum CommandResult {
     /// 非斜杠命令，交给下游处理
     NotACommand,
     /// 命令需要权限，拒绝执行
+    #[allow(dead_code)] // TODO: 实现权限验证后使用
     PermissionDenied(String),
     /// 命令执行错误
     Error(String),
@@ -162,6 +168,7 @@ pub struct CommandResponse {
     /// 响应内容
     pub content: String,
     /// 是否为 Markdown 格式
+    #[allow(dead_code)] // TODO: 用于前端 Markdown 渲染
     pub is_markdown: bool,
 }
 

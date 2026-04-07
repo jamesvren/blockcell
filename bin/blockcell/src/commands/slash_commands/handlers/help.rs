@@ -45,7 +45,7 @@ impl SlashCommand for HelpCommand {
         content.push_str("\n💡 提示:\n");
         content.push_str("  - 大部分命令零 Token 消耗，本地直接执行\n");
         content.push_str("  - /learn 命令会调用 LLM，消耗 Token\n");
-        content.push_str("\n");
+        content.push('\n');
 
         CommandResult::Handled(CommandResponse::text(content))
     }
