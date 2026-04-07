@@ -94,6 +94,16 @@ pub trait SlashCommand: Send + Sync {
         None
     }
 
+    /// 是否接受参数
+    ///
+    /// - `true`: 命令接受参数，如 `/learn 技能描述`
+    /// - `false`: 命令不接受参数，如 `/help`、`/tasks`。如果用户输入了额外内容，命令不会触发
+    ///
+    /// 默认为 `false`（不接受参数）
+    fn accepts_args(&self) -> bool {
+        false
+    }
+
     /// 命令执行超时时间（秒），默认 10 秒
     ///
     /// 注意：`/learn` 命令会调用 LLM，需要更长超时
@@ -155,7 +165,7 @@ impl SlashCommandHandler {
     ) -> CommandResult {
         let input = input.trim();
 
-        // 检查是否为斜杠命令
+        // 检查是否为斜杠命令：必须以 '/' 开头
         if !input.starts_with('/') {
             return CommandResult::NotACommand;
         }
@@ -166,6 +176,17 @@ impl SlashCommandHandler {
         } else {
             (&input[1..], "")
         };
+
+        // 验证命令名称格式：
+        // 1. 不能为空（处理 "/ help" 这种情况）
+        // 2. 只能包含字母、数字、连字符和下划线
+        // 3. 必须以字母开头
+        if cmd_name.is_empty()
+            || !cmd_name.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false)
+            || !cmd_name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
+            return CommandResult::NotACommand;
+        }
 
         // 查找命令处理器
         for command in &self.commands {
@@ -182,6 +203,11 @@ impl SlashCommandHandler {
                             is_markdown: false,
                         });
                     }
+                }
+
+                // 参数检查：如果命令不接受参数但用户提供了参数，不触发命令
+                if !command.accepts_args() && !args.is_empty() {
+                    return CommandResult::NotACommand;
                 }
 
                 // 权限检查

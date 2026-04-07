@@ -606,7 +606,11 @@ CommandResult::ForwardToRuntime { transformed_content, .. } => {
 
 ### 5.4 /clear 命令完整实现
 
-> **设计说明**: AgentRuntime 的消息历史存储在 `run_loop` 的局部变量中，无法直接访问。因此 `/clear` 采用回调模式 + 文件清理的组合方案。
+> **设计说明**: `/clear` 命令采用回调模式 + 文件清理的组合方案。
+>
+> **所有渠道均支持内存清除**:
+> - **CLI 模式**: 通过 `Arc<AtomicBool>` 标记 + `ResponseCache.clear_session()`
+> - **Gateway/WebSocket/Channel 模式**: 通过共享 `ResponseCache` + 回调函数
 
 ```rust
 // bin/blockcell/src/commands/slash_commands/handlers/clear.rs
@@ -629,8 +633,7 @@ impl SlashCommand for ClearCommand {
     async fn execute(&self, _args: &str, ctx: &CommandContext) -> CommandResult {
         let mut results = Vec::new();
 
-        // 1. 调用 AgentRuntime 注册的清除回调（如果存在）
-        // 回调由 AgentRuntime 在启动时注册，用于清除内存中的消息历史
+        // 1. 调用清除回调（清除内存中的 ResponseCache）
         if let Some(ref callback) = ctx.session_clear_callback {
             if callback() {
                 results.push("✅ 会话内存状态已清除");
@@ -638,7 +641,7 @@ impl SlashCommand for ClearCommand {
                 results.push("⚠️ 会话内存清除失败");
             }
         } else {
-            results.push("ℹ️ 无内存清除回调（可能是 Gateway 模式）");
+            results.push("ℹ️ 无内存清除回调");
         }
 
         // 2. 清除 Session Memory 文件 (Layer 3)
@@ -682,26 +685,91 @@ impl SlashCommand for ClearCommand {
 }
 ```
 
-**AgentRuntime 侧的回调注册** (在 `runtime.rs` 或 `gateway.rs` 中实现):
+#### CLI 模式的回调实现
 
 ```rust
-// 在 spawn_agent_runtime 或 AgentRuntime 中创建清除回调
-let session_clear_callback: Arc<dyn Fn() -> bool + Send + Sync> = {
-    // 注：AgentRuntime 的消息历史在 run_loop 的局部变量 current_messages 中
-    // 无法直接访问，需要通过消息通道或状态共享来实现
+// bin/blockcell/src/commands/agent.rs
 
-    // 方案 1: 使用共享的 AtomicBool 标记（推荐）
-    // 在 run_loop 中检查标记，收到信号后在下一次循环清除消息
-    let clear_flag = Arc::new(AtomicBool::new(false));
-    let flag_clone = clear_flag.clone();
+// 创建会话清除标记
+let session_clear_flag = Arc::new(AtomicBool::new(false));
 
+// CommandContext 回调
+let ctx = CommandContext::for_cli(...)
+    .with_clear_callback(Arc::new({
+        let flag = session_clear_flag.clone();
+        move || {
+            flag.store(true, Ordering::SeqCst);
+            true
+        }
+    }));
+
+// 在 stdin 线程中检查标记
+if session_clear_flag.load(Ordering::SeqCst) {
+    session_clear_flag.store(false, Ordering::SeqCst);
+    response_cache.clear_session(&session_key);
+}
+```
+
+#### Gateway 模式的回调实现
+
+```rust
+// bin/blockcell/src/commands/gateway.rs
+
+// 在 GatewayState 中维护共享的 ResponseCache
+struct GatewayState {
+    response_caches: Arc<RwLock<HashMap<String, ResponseCache>>>,
+    // ...
+}
+
+// spawn_agent_runtime 中注册 ResponseCache
+let response_cache = ResponseCache::new();
+runtime.set_response_cache(response_cache.clone());
+response_caches.write().await.insert(agent_id.to_string(), response_cache);
+
+// 创建回调函数
+fn create_session_clear_callback(
+    response_caches: Arc<RwLock<HashMap<String, ResponseCache>>>,
+    agent_id: String,
+    session_key: String,
+) -> Arc<dyn Fn() -> bool + Send + Sync> {
     Arc::new(move || {
-        flag_clone.store(true, Ordering::SeqCst);
-        true
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.block_on(async {
+                let caches = response_caches.read().await;
+                if let Some(cache) = caches.get(&agent_id) {
+                    cache.clear_session(&session_key);
+                    true
+                } else {
+                    false
+                }
+            })
+        } else {
+            false
+        }
     })
-};
+}
 
-// 在 run_loop 中检查标记
+// 在 interceptor 和 websocket 中使用
+let ctx = CommandContext::for_channel(...)
+    .with_clear_callback(create_session_clear_callback(
+        response_caches.clone(),
+        agent_id,
+        session_key,
+    ));
+```
+
+#### 为什么 ResponseCache 可以共享？
+
+```rust
+// crates/agent/src/response_cache.rs
+
+#[derive(Clone)]
+pub struct ResponseCache {
+    inner: Arc<Mutex<ResponseCacheInner>>,
+}
+```
+
+**ResponseCache 内部使用 `Arc<Mutex>`**，Clone 后指向同一个内部数据，天然支持跨线程共享。
 loop {
     if clear_flag.load(Ordering::SeqCst) {
         current_messages.clear();
@@ -1293,6 +1361,7 @@ mod tests {
 - [x] `bin/blockcell/src/commands/slash_commands/handlers/tasks.rs` - /tasks 命令
 - [x] Gateway WebSocket 集成
 - [x] Gateway Channel 拦截层
+- [x] 全词匹配机制（`accepts_args()` 属性）
 
 ### Phase 2: 迁移现有命令 (P1)
 
@@ -1307,6 +1376,7 @@ mod tests {
   - [x] 清除 Session Memory 文件
   - [x] 清除 .active 标记文件
   - [x] 支持会话清除回调
+  - [x] Gateway 模式 ResponseCache 共享清除
   - [x] 错误信息包含 session_key 上下文
 - [x] 迁移 /quit, /exit 命令（渠道限制）
 - [x] 迁移 /clear-skills, /forget-skill 命令
@@ -1323,6 +1393,47 @@ mod tests {
 - [ ] 权限控制系统
 - [ ] 速率限制
 - [ ] 审计日志
+
+---
+
+## 附录: 命令参数规则
+
+### 全词匹配机制
+
+斜杠命令采用全词匹配机制：
+
+1. **去除头尾空格后，命令名称必须完整匹配**
+2. **不接受参数的命令**：如果用户输入了额外内容，命令不会触发
+3. **接受参数的命令**：命令名称后的内容作为参数传递
+
+### 命令参数规则
+
+| 命令 | 接受参数 | 触发示例 | 不触发示例 |
+|------|---------|---------|-----------|
+| `/help` | 否 | `/help` | `/help 显示帮助` |
+| `/tasks` | 否 | `/tasks` | `/tasks 状态` |
+| `/skills` | 否 | `/skills` | `/skills 列表` |
+| `/tools` | 否 | `/tools` | `/tools 工具` |
+| `/clear` | 否 | `/clear` | `/clear 清除` |
+| `/quit` | 否 | `/quit` | `/quit 退出` |
+| `/exit` | 否 | `/exit` | `/exit 退出` |
+| `/clear-skills` | 否 | `/clear-skills` | `/clear-skills 技能` |
+| `/learn` | 是 | `/learn`, `/learn 技能描述` | - |
+| `/forget-skill` | 是 | `/forget-skill`, `/forget-skill 名称` | - |
+
+### 实现方式
+
+```rust
+// SlashCommand trait 中的 accepts_args() 方法
+fn accepts_args(&self) -> bool {
+    false  // 默认不接受参数
+}
+
+// try_handle 中的检查逻辑
+if !command.accepts_args() && !args.is_empty() {
+    return CommandResult::NotACommand;  // 不触发命令
+}
+```
 
 ---
 

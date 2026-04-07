@@ -37,7 +37,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc, Mutex};
+use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use tracing::{debug, error, info, warn};
 
 use axum::{
@@ -153,6 +153,8 @@ struct GatewayState {
     channel_manager: Arc<blockcell_channels::ChannelManager>,
     /// Shared EvolutionService for trigger/delete/status handlers
     evolution_service: Arc<Mutex<EvolutionService>>,
+    /// Shared ResponseCache for all agents (for /clear command)
+    response_caches: Arc<RwLock<HashMap<String, blockcell_agent::ResponseCache>>>,
 }
 
 #[derive(Deserialize, Default)]
@@ -660,6 +662,45 @@ fn open_agent_memory_store(paths: &Paths, config: &Config) -> Option<MemoryStore
     }
 }
 
+/// Create a session clear callback for CommandContext.
+/// This callback is used by the /clear command to clear ResponseCache.
+fn create_session_clear_callback(
+    response_caches: Arc<RwLock<HashMap<String, blockcell_agent::ResponseCache>>>,
+    agent_id: String,
+    session_key: String,
+) -> Arc<dyn Fn() -> bool + Send + Sync> {
+    Arc::new(move || {
+        // Use try_current to get tokio runtime handle
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            let caches = response_caches.clone();
+            let agent_id = agent_id.clone();
+            let session_key = session_key.clone();
+
+            handle.block_on(async {
+                let caches = caches.read().await;
+                if let Some(cache) = caches.get(&agent_id) {
+                    cache.clear_session(&session_key);
+                    info!(
+                        session_key = %session_key,
+                        agent_id = %agent_id,
+                        "[/clear] ResponseCache cleared"
+                    );
+                    true
+                } else {
+                    warn!(
+                        agent_id = %agent_id,
+                        "[/clear] No ResponseCache found for agent"
+                    );
+                    false
+                }
+            })
+        } else {
+            error!("[/clear] No tokio runtime available");
+            false
+        }
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn spawn_agent_runtime(
     config: &Config,
@@ -671,6 +712,7 @@ async fn spawn_agent_runtime(
     ws_broadcast_tx: broadcast::Sender<String>,
     shutdown_tx: broadcast::Sender<()>,
     task_manager: TaskManager,
+    response_caches: Arc<RwLock<HashMap<String, blockcell_agent::ResponseCache>>>,
 ) -> anyhow::Result<(
     mpsc::Sender<InboundMessage>,
     tokio::task::JoinHandle<()>,
@@ -750,6 +792,15 @@ async fn spawn_agent_runtime(
     runtime.set_capability_registry(cap_registry_handle);
     runtime.set_core_evolution(core_evo_handle);
     runtime.set_event_tx(ws_broadcast_tx);
+
+    // Create shared ResponseCache and register it
+    let response_cache = blockcell_agent::ResponseCache::new();
+    runtime.set_response_cache(response_cache.clone());
+    {
+        let mut caches = response_caches.write().await;
+        caches.insert(agent_id.to_string(), response_cache);
+    }
+    info!(agent_id = %agent_id, "ResponseCache registered for /clear command");
 
     // Initialize Layer 5 memory injector (7-layer memory system)
     if let Err(e) = runtime.init_memory_injector().await {
@@ -1105,6 +1156,9 @@ pub async fn run(cli_host: Option<String>, cli_port: Option<u16>) -> anyhow::Res
 
     // ── Create one runtime per resolved agent ──
     let resolved_agents = config.resolved_agents();
+    // Shared ResponseCache for /clear command
+    let response_caches: Arc<RwLock<HashMap<String, blockcell_agent::ResponseCache>>> =
+        Arc::new(RwLock::new(HashMap::new()));
     let mut runtime_senders: HashMap<String, mpsc::Sender<InboundMessage>> = HashMap::new();
     let mut runtime_handles: Vec<(String, tokio::task::JoinHandle<()>)> = Vec::new();
     let mut agent_memory_stores: HashMap<String, MemoryStoreHandle> = HashMap::new();
@@ -1121,6 +1175,7 @@ pub async fn run(cli_host: Option<String>, cli_port: Option<u16>) -> anyhow::Res
             ws_broadcast_tx.clone(),
             shutdown_tx.clone(),
             task_manager.clone(),
+            response_caches.clone(),
         )
         .await?;
         if let Some(memory_store_handle) = memory_store_handle {
@@ -1257,6 +1312,8 @@ pub async fn run(cli_host: Option<String>, cli_port: Option<u16>) -> anyhow::Res
     let slash_paths = paths.clone();
     let slash_task_manager = task_manager.clone();
     let slash_outbound_tx = outbound_tx.clone();
+    let slash_response_caches = response_caches.clone();
+    let slash_config = config.clone();
     let interceptor_handle = tokio::spawn(async move {
         let mut inbound_rx = inbound_rx;
         loop {
@@ -1300,13 +1357,23 @@ pub async fn run(cli_host: Option<String>, cli_port: Option<u16>) -> anyhow::Res
                     CommandContext, CommandResult, SLASH_COMMAND_HANDLER,
                 };
 
+                // 解析目标 agent_id 和 session_key
+                let agent_id = resolve_runtime_agent_id(&slash_config, &msg)
+                    .unwrap_or_else(|| "default".to_string());
+                let session_key = format!("{}:{}", msg.channel, msg.chat_id);
+
                 let ctx = CommandContext::for_channel(
                     slash_paths.clone(),
                     slash_task_manager.clone(),
                     msg.channel.clone(),
                     msg.chat_id.clone(),
                     Some(msg.sender_id.clone()),
-                );
+                )
+                .with_clear_callback(create_session_clear_callback(
+                    slash_response_caches.clone(),
+                    agent_id,
+                    session_key,
+                ));
 
                 match SLASH_COMMAND_HANDLER.try_handle(&msg.content, &ctx).await {
                     CommandResult::Handled(response) => {
@@ -1637,6 +1704,7 @@ pub async fn run(cli_host: Option<String>, cli_port: Option<u16>) -> anyhow::Res
         web_password: web_password.clone(),
         channel_manager: Arc::clone(&channel_manager),
         evolution_service: shared_evo_service,
+        response_caches: response_caches.clone(),
     };
 
     let app = Router::new()

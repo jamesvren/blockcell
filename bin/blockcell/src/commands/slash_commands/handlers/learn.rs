@@ -22,6 +22,11 @@ impl SlashCommand for LearnCommand {
         "Learn a new skill by description (uses LLM)"
     }
 
+    /// 此命令接受参数
+    fn accepts_args(&self) -> bool {
+        true
+    }
+
     fn timeout_secs(&self) -> u64 {
         120 // 学习技能需要更长超时
     }

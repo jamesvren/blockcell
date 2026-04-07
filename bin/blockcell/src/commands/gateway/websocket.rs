@@ -144,11 +144,17 @@ pub(super) async fn handle_ws_connection(socket: WebSocket, state: GatewayState)
 
                             // 斜杠命令拦截：在创建 InboundMessage 之前检查
                             if content.starts_with('/') {
+                                let session_key = format!("ws:{}", chat_id);
                                 let ctx = CommandContext::for_websocket(
                                     state.paths.clone(),
                                     state.task_manager.clone(),
                                     chat_id.clone(),
-                                );
+                                )
+                                .with_clear_callback(super::create_session_clear_callback(
+                                    state.response_caches.clone(),
+                                    resolved_agent_id.clone(),
+                                    session_key,
+                                ));
 
                                 match SLASH_COMMAND_HANDLER.try_handle(&content, &ctx).await {
                                     CommandResult::Handled(response) => {

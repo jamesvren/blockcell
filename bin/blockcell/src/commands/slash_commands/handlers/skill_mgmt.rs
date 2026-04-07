@@ -58,6 +58,11 @@ impl SlashCommand for ForgetSkillCommand {
         "Delete records for a specific skill"
     }
 
+    /// 此命令接受参数
+    fn accepts_args(&self) -> bool {
+        true
+    }
+
     async fn execute(&self, args: &str, ctx: &CommandContext) -> CommandResult {
         let skill_name = args.trim();
 
