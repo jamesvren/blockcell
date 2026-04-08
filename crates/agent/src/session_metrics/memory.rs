@@ -1,11 +1,24 @@
 //! Memory Metrics - Global metrics for the 7-layer memory system.
 //!
 //! Uses lock-free atomic counters for high-performance concurrent access.
+//!
+//! ## Data Persistence
+//!
+//! **Important:** All metrics are stored in-memory only and reset on application restart.
+//! This is by design - metrics are meant for real-time monitoring and debugging during
+//! a session. For persistent metrics or historical analysis, consider:
+//!
+//! - Exporting metrics to external monitoring systems (Prometheus, Grafana, etc.)
+//! - Using `/session_metrics --json` to capture snapshots for external storage
+//! - Implementing a custom metrics exporter using the `MemoryMetrics::snapshot()` method
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 
 /// Global memory system metrics instance.
+///
+/// Note: Metrics are in-memory only and reset on application restart.
+/// For persistent metrics, consider exporting to external monitoring systems.
 pub static MEMORY_METRICS: OnceLock<MemoryMetrics> = OnceLock::new();
 
 /// Get the global memory metrics instance.

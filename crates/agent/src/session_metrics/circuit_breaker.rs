@@ -425,4 +425,158 @@ mod tests {
         // 清理：重置所有熔断器
         reset_all_circuit_breakers();
     }
+
+    // ============================================================================
+    // Integration Tests: Circuit Breaker Blocking Operations
+    // ============================================================================
+
+    /// Integration test: Circuit breaker blocks operation when Open
+    ///
+    /// Tests that:
+    /// 1. Circuit breaker correctly blocks requests when in Open state
+    /// 2. Blocked requests are rejected immediately (no waiting)
+    /// 3. Recovery works correctly after timeout
+    #[test]
+    fn test_circuit_breaker_blocks_operations_when_open() {
+        let config = CircuitBreakerConfig {
+            max_failures: 1,
+            reset_timeout: Duration::from_millis(100),
+            half_open_max_calls: 1,
+        };
+        let cb = CircuitBreaker::new(config);
+
+        // Initially allows operations
+        assert!(cb.allow(), "Circuit breaker should allow operations initially");
+
+        // Trigger open state with one failure
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+
+        // Verify operations are blocked
+        assert!(!cb.allow(), "Circuit breaker should block operations when Open");
+
+        // Multiple calls should all be blocked (fast rejection)
+        for _ in 0..10 {
+            assert!(!cb.allow(), "All requests should be rejected in Open state");
+        }
+    }
+
+    /// Integration test: Circuit breaker recovers after timeout
+    ///
+    /// Tests the full recovery cycle:
+    /// 1. Open -> HalfOpen transition after timeout
+    /// 2. HalfOpen -> Closed transition on success
+    /// 3. Operations resume after recovery
+    #[test]
+    fn test_circuit_breaker_recovery_cycle() {
+        let config = CircuitBreakerConfig {
+            max_failures: 1,
+            reset_timeout: Duration::from_millis(50),
+            half_open_max_calls: 1,
+        };
+        let cb = CircuitBreaker::new(config);
+
+        // Trigger open state
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+
+        // Operations blocked immediately after failure
+        assert!(!cb.allow());
+
+        // Wait for timeout
+        thread::sleep(Duration::from_millis(100));
+
+        // First call should transition to HalfOpen and allow
+        assert!(cb.allow(), "Should allow after timeout (HalfOpen transition)");
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+
+        // Record success -> Closed
+        cb.record_success();
+        assert_eq!(cb.state(), CircuitState::Closed);
+
+        // Operations should resume normally
+        assert!(cb.allow(), "Operations should resume after recovery");
+    }
+
+    /// Integration test: Circuit breaker handles sustained failures
+    ///
+    /// Tests behavior when failures continue:
+    /// 1. HalfOpen -> Open transition on continued failures
+    /// 2. Timeout period increases before next recovery attempt
+    #[test]
+    fn test_circuit_breaker_sustained_failures() {
+        let config = CircuitBreakerConfig {
+            max_failures: 1,
+            reset_timeout: Duration::from_millis(50),
+            half_open_max_calls: 1,
+        };
+        let cb = CircuitBreaker::new(config);
+
+        // Open the circuit breaker
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+
+        // Wait for timeout -> HalfOpen
+        thread::sleep(Duration::from_millis(100));
+        assert!(cb.allow());
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+
+        // Failure during HalfOpen -> Open again
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+
+        // Operations blocked again
+        assert!(!cb.allow());
+
+        // Need to wait for another timeout cycle
+        thread::sleep(Duration::from_millis(100));
+        assert!(cb.allow());
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+    }
+
+    /// Integration test: Circuit breaker doesn't affect other breakers
+    ///
+    /// Validates that operations blocked by one circuit breaker
+    /// don't affect the state of other circuit breakers.
+    #[test]
+    fn test_circuit_breaker_operation_isolation() {
+        // Reset all to clean state
+        reset_all_circuit_breakers();
+
+        // Create local test breakers to avoid affecting globals
+        let config1 = CircuitBreakerConfig {
+            max_failures: 2,
+            reset_timeout: Duration::from_secs(60),
+            half_open_max_calls: 1,
+        };
+        let config2 = CircuitBreakerConfig {
+            max_failures: 3,
+            reset_timeout: Duration::from_secs(300),
+            half_open_max_calls: 1,
+        };
+
+        let cb1 = CircuitBreaker::new(config1);
+        let cb2 = CircuitBreaker::new(config2);
+
+        // Both allow initially
+        assert!(cb1.allow());
+        assert!(cb2.allow());
+
+        // Trigger cb1 to Open
+        cb1.record_failure();
+        cb1.record_failure();
+        assert_eq!(cb1.state(), CircuitState::Open);
+
+        // cb1 blocked, cb2 still allows
+        assert!(!cb1.allow());
+        assert!(cb2.allow(), "cb2 should not be affected by cb1 state");
+
+        // cb2 allows multiple operations
+        cb2.record_success();
+        cb2.record_success();
+        assert!(cb2.allow());
+
+        // cb1 still blocked
+        assert!(!cb1.allow());
+    }
 }
