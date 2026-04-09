@@ -118,6 +118,8 @@ impl SlashCommand for ClearCommand {
         metrics.layer3.update_section_count(0);
         // Layer 4: 当前 token 使用量
         metrics.layer4.update_token_usage(0);
+        // Layer 7: Forked Agent 统计 (Spawned, Active, Completed, Failed 等)
+        metrics.layer7.reset();
         tracing::debug!(
             session_key = %session_key,
             "[/clear] Session metrics real-time state reset completed"

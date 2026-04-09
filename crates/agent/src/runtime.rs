@@ -4156,7 +4156,12 @@ impl AgentRuntime {
         // Post-Sampling Hooks: Layer 3 & Layer 5
         // 在主循环结束后执行 Session Memory 和 Auto Memory 提取
         // 使用 tokio::spawn 非阻塞执行，不延迟用户响应
-        if let Some(memory_system) = self.memory_system.as_ref() {
+        // 预先获取共享引用（避免借用冲突）
+        let reload_flag = self.memory_injector_reload_flag();
+        let cursor_reload_flag = self.memory_system.as_ref()
+            .map(|ms| ms.cursor_reload_flag());
+
+        if let Some(memory_system) = self.memory_system.as_mut() {
             let current_tokens = estimate_messages_tokens(&history);
             let action = crate::memory_system::evaluate_memory_hooks(
                 memory_system,
@@ -4220,8 +4225,10 @@ impl AgentRuntime {
                     let history_clone = history.clone();
                     let config_dir = memory_system.config_dir().to_path_buf();
                     let model = self.config.agents.defaults.model.clone();
-                    // 克隆 reload 标志，用于在后台任务完成时通知主 runtime
-                    let reload_flag = self.memory_injector_reload_flag();
+                    // 使用预先获取的 cursor_reload_flag
+                    let cursor_reload_flag = cursor_reload_flag.clone().unwrap_or_else(|| {
+                        Arc::new(std::sync::atomic::AtomicBool::new(false))
+                    });
 
                     // 为每种记忆类型创建独立的异步任务
                     for memory_type in types {
@@ -4230,6 +4237,7 @@ impl AgentRuntime {
                         let config_dir_for_type = config_dir.clone();
                         let model_for_type = model.clone();
                         let reload_flag_for_type = Arc::clone(&reload_flag);
+                        let cursor_reload_flag_for_type = Arc::clone(&cursor_reload_flag);
 
                         // 获取最后一条用户消息的 UUID（用于游标更新）
                         let last_user_uuid = history_for_type
@@ -4281,6 +4289,8 @@ impl AgentRuntime {
                                 );
                                 // 标记需要刷新缓存
                                 reload_flag_for_type.store(true, std::sync::atomic::Ordering::Relaxed);
+                                // 标记需要重新加载游标状态（通知主线程）
+                                cursor_reload_flag_for_type.store(true, std::sync::atomic::Ordering::Relaxed);
                             } else {
                                 warn!(
                                     memory_type = memory_type.name(),
