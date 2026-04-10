@@ -428,8 +428,12 @@ mod tests {
     fn test_read_and_edit_file_schemas_warn_against_empty_args() {
         let read_schema = ReadFileTool.schema();
         let edit_schema = EditFileTool.schema();
-        assert!(read_schema.description.contains("do not call this tool with `{}`"));
-        assert!(edit_schema.description.contains("do not call this tool with `{}`"));
+        assert!(read_schema
+            .description
+            .contains("do not call this tool with `{}`"));
+        assert!(edit_schema
+            .description
+            .contains("do not call this tool with `{}`"));
     }
 
     #[test]

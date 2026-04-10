@@ -6,8 +6,8 @@
 use blockcell_core::{Config, Result};
 
 use super::message::{build_message, OneBotMessage};
-use super::websocket::send_via_ws;
 use super::types::ApiRequest;
+use super::websocket::send_via_ws;
 
 /// Send a message via NapCatQQ.
 ///
@@ -94,8 +94,17 @@ mod tests {
 
     #[test]
     fn test_parse_chat_id() {
-        assert_eq!(parse_chat_id("group:123456"), ("group", "123456".to_string()));
-        assert_eq!(parse_chat_id("user:789012"), ("private", "789012".to_string()));
-        assert_eq!(parse_chat_id("plain_id"), ("private", "plain_id".to_string()));
+        assert_eq!(
+            parse_chat_id("group:123456"),
+            ("group", "123456".to_string())
+        );
+        assert_eq!(
+            parse_chat_id("user:789012"),
+            ("private", "789012".to_string())
+        );
+        assert_eq!(
+            parse_chat_id("plain_id"),
+            ("private", "plain_id".to_string())
+        );
     }
 }

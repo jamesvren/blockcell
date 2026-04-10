@@ -88,20 +88,18 @@ impl CronService {
         default_timezone: Option<&str>,
     ) -> Self {
         // Parse default timezone string to Tz
-        let default_tz = default_timezone.and_then(|tz_str| {
-            match tz_str.parse::<Tz>() {
-                Ok(tz) => {
-                    tracing::info!(default_timezone = %tz_str, "CronService using default timezone");
-                    Some(tz)
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        default_timezone = %tz_str,
-                        error = %e,
-                        "Invalid default timezone string, falling back to UTC"
-                    );
-                    None
-                }
+        let default_tz = default_timezone.and_then(|tz_str| match tz_str.parse::<Tz>() {
+            Ok(tz) => {
+                tracing::info!(default_timezone = %tz_str, "CronService using default timezone");
+                Some(tz)
+            }
+            Err(e) => {
+                tracing::warn!(
+                    default_timezone = %tz_str,
+                    error = %e,
+                    "Invalid default timezone string, falling back to UTC"
+                );
+                None
             }
         });
 
@@ -430,18 +428,23 @@ impl CronService {
             }
 
             // Parse timezone for this job
-            let tz: Option<Tz> = job.schedule.tz.as_ref().and_then(|tz_str| {
-                let parsed = parse_timezone(tz_str);
-                if parsed.is_none() {
-                    tracing::warn!(
-                        job_id = %job.id,
-                        tz = %tz_str,
-                        default_tz = ?self.default_timezone,
-                        "Invalid timezone string, falling back to default timezone or UTC"
-                    );
-                }
-                parsed
-            }).or(self.default_timezone);
+            let tz: Option<Tz> = job
+                .schedule
+                .tz
+                .as_ref()
+                .and_then(|tz_str| {
+                    let parsed = parse_timezone(tz_str);
+                    if parsed.is_none() {
+                        tracing::warn!(
+                            job_id = %job.id,
+                            tz = %tz_str,
+                            default_tz = ?self.default_timezone,
+                            "Invalid timezone string, falling back to default timezone or UTC"
+                        );
+                    }
+                    parsed
+                })
+                .or(self.default_timezone);
 
             let should_run = match &job.state.next_run_at_ms {
                 Some(next) => *next <= now_ms,
@@ -470,7 +473,9 @@ impl CronService {
                     ScheduleKind::Cron => {
                         // Calculate next cron time with timezone support
                         if let Some(expr) = &job.schedule.expr {
-                            if let Some(next_ms) = self.calculate_next_cron_run_ms(expr, tz.as_ref()) {
+                            if let Some(next_ms) =
+                                self.calculate_next_cron_run_ms(expr, tz.as_ref())
+                            {
                                 job.state.next_run_at_ms = Some(next_ms);
                             }
                         }
@@ -677,7 +682,8 @@ impl CronService {
             self.inbound_tx.clone(),
             self.event_emitter.clone(),
             self.agent_id.clone(),
-        ).await;
+        )
+        .await;
     }
 
     /// Calculate the next cron run time with timezone support.
@@ -685,8 +691,14 @@ impl CronService {
     fn calculate_next_cron_run_ms(&self, expr: &str, tz: Option<&Tz>) -> Option<i64> {
         match expr.parse::<cron::Schedule>() {
             Ok(schedule) => match tz {
-                Some(tz_ref) => schedule.upcoming(*tz_ref).next().map(|dt| dt.timestamp_millis()),
-                None => schedule.upcoming(chrono::Utc).next().map(|dt| dt.timestamp_millis()),
+                Some(tz_ref) => schedule
+                    .upcoming(*tz_ref)
+                    .next()
+                    .map(|dt| dt.timestamp_millis()),
+                None => schedule
+                    .upcoming(chrono::Utc)
+                    .next()
+                    .map(|dt| dt.timestamp_millis()),
             },
             Err(e) => {
                 tracing::error!(expr = %expr, error = %e, "Invalid cron expression");
@@ -742,7 +754,8 @@ impl CronService {
         );
 
         // Use configurable tick interval
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(self.tick_interval_secs));
+        let mut interval =
+            tokio::time::interval(tokio::time::Duration::from_secs(self.tick_interval_secs));
 
         // Skip accumulated ticks when the service was paused/blocked
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);

@@ -6,9 +6,8 @@ pub mod heartbeat;
 pub mod job;
 
 pub use consolidator::{
-    DreamConsolidator, DreamState, DreamError,
-    check_gates, GateCheckResult,
-    TIME_GATE_THRESHOLD_HOURS, SESSION_GATE_THRESHOLD,
+    check_gates, DreamConsolidator, DreamError, DreamState, GateCheckResult,
+    SESSION_GATE_THRESHOLD, TIME_GATE_THRESHOLD_HOURS,
 };
 pub use cron_service::CronService;
 pub use dream_service::{DreamService, DreamServiceConfig};

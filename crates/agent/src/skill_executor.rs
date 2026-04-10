@@ -116,10 +116,7 @@ mod tests {
         let mut history = vec![
             ChatMessage::user("第一次查"),
             skill_trace_message("xiaohongshu"),
-            ChatMessage::tool_result(
-                "skill-trace-xiaohongshu",
-                r#"{"skill_name":"xiaohongshu"}"#,
-            ),
+            ChatMessage::tool_result("skill-trace-xiaohongshu", r#"{"skill_name":"xiaohongshu"}"#),
             ChatMessage::assistant("返回了推荐流"),
         ];
         history.extend((0..RECENT_SKILL_TRACE_WINDOW).map(|index| {

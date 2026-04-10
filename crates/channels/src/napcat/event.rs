@@ -141,7 +141,11 @@ pub struct MessageEvent {
     #[serde(default, deserialize_with = "deserialize_id_opt")]
     pub target_id: Option<String>,
     /// Group ID (for group messages, can be number or string).
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_id_opt")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_id_opt"
+    )]
     pub group_id: Option<String>,
     /// Message ID.
     pub message_id: i64,
@@ -172,7 +176,8 @@ impl MessageEvent {
     /// Get the plain text content, removing @mentions of the bot.
     /// Useful for group messages where the bot is mentioned directly.
     pub fn get_text_without_at(&self) -> String {
-        self.message.to_plain_text_without_at(&self.self_id.to_string())
+        self.message
+            .to_plain_text_without_at(&self.self_id.to_string())
     }
 
     /// Check if this is a group message.

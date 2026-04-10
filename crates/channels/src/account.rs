@@ -1,12 +1,12 @@
+#[cfg(feature = "napcat")]
+use blockcell_core::config::NapCatAccountConfig;
+#[cfg(feature = "qq")]
+use blockcell_core::config::QQAccountConfig;
 use blockcell_core::config::{
     DingTalkAccountConfig, DiscordAccountConfig, FeishuAccountConfig, LarkAccountConfig,
     SlackAccountConfig, TelegramAccountConfig, WeComAccountConfig, WeixinAccountConfig,
     WhatsAppAccountConfig,
 };
-#[cfg(feature = "qq")]
-use blockcell_core::config::QQAccountConfig;
-#[cfg(feature = "napcat")]
-use blockcell_core::config::NapCatAccountConfig;
 use blockcell_core::Config;
 use std::collections::HashMap;
 
@@ -381,7 +381,8 @@ pub fn qq_listener_configs(config: &Config) -> Vec<ListenerConfig> {
             scoped.channels.qq.environment = account.environment.clone();
             scoped.channels.qq.mode = account.mode.clone();
             scoped.channels.qq.allow_from = account.allow_from.clone();
-            scoped.channels.qq.accounts = HashMap::from([(account_id.to_string(), account.clone())]);
+            scoped.channels.qq.accounts =
+                HashMap::from([(account_id.to_string(), account.clone())]);
             scoped.channels.qq.default_account_id = Some(account_id.to_string());
         },
     )
@@ -395,14 +396,17 @@ pub fn napcat_listener_configs(config: &Config) -> Vec<ListenerConfig> {
             return false;
         }
         // Check based on mode or any configured field
-        account.ws_url.as_deref().map(|s| !s.is_empty()).unwrap_or(false)
+        account
+            .ws_url
+            .as_deref()
+            .map(|s| !s.is_empty())
+            .unwrap_or(false)
             || account.server_port.map(|p| p > 0).unwrap_or(false)
     }
 
     // Helper to check if base config is properly configured
     fn is_base_configured(cfg: &Config) -> bool {
-        !cfg.channels.napcat.ws_url.is_empty()
-            || cfg.channels.napcat.server_port > 0
+        !cfg.channels.napcat.ws_url.is_empty() || cfg.channels.napcat.server_port > 0
     }
 
     scoped_listener_configs(
@@ -441,7 +445,8 @@ pub fn napcat_listener_configs(config: &Config) -> Vec<ListenerConfig> {
             if let Some(ref server_path) = account.server_path {
                 scoped.channels.napcat.server_path = server_path.clone();
             }
-            scoped.channels.napcat.accounts = HashMap::from([(account_id.to_string(), account.clone())]);
+            scoped.channels.napcat.accounts =
+                HashMap::from([(account_id.to_string(), account.clone())]);
             scoped.channels.napcat.default_account_id = Some(account_id.to_string());
         },
     )
@@ -511,16 +516,21 @@ pub fn channel_configured(config: &Config, channel: &str) -> bool {
             // Check if any mode is configured:
             // - ws-client: ws_url is set
             // - ws-server: server_port is set (non-zero)
-            let base_configured = !config.channels.napcat.ws_url.is_empty()
-                || config.channels.napcat.server_port > 0;
-            let account_configured = has_enabled_account(&config.channels.napcat.accounts, |account| {
-                if !account.enabled {
-                    return false;
-                }
-                // Check account-specific configuration based on mode
-                account.ws_url.as_deref().map(|s| !s.is_empty()).unwrap_or(false)
-                    || account.server_port.map(|p| p > 0).unwrap_or(false)
-            });
+            let base_configured =
+                !config.channels.napcat.ws_url.is_empty() || config.channels.napcat.server_port > 0;
+            let account_configured =
+                has_enabled_account(&config.channels.napcat.accounts, |account| {
+                    if !account.enabled {
+                        return false;
+                    }
+                    // Check account-specific configuration based on mode
+                    account
+                        .ws_url
+                        .as_deref()
+                        .map(|s| !s.is_empty())
+                        .unwrap_or(false)
+                        || account.server_port.map(|p| p > 0).unwrap_or(false)
+                });
             base_configured || account_configured
         }
         "weixin" => {

@@ -65,23 +65,26 @@ impl RabitqIndex {
     }
 
     fn load_rows(&self) -> Result<Vec<StoredVector>> {
-        let conn = self.db.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ database lock error: {}", e))
-        })?;
+        let conn = self
+            .db
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ database lock error: {}", e)))?;
         load_rows_from_conn(&conn, &self.layout.table_name)
     }
 
     fn vector_count(&self) -> Result<usize> {
-        let conn = self.db.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ database lock error: {}", e))
-        })?;
+        let conn = self
+            .db
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ database lock error: {}", e)))?;
         count_vectors(&conn, &self.layout.table_name)
     }
 
     fn mark_dirty(&self) -> Result<()> {
-        let mut state = self.state.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ state lock error: {}", e))
-        })?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ state lock error: {}", e)))?;
         state.dirty = true;
         state.cached_index = None;
         Ok(())
@@ -92,9 +95,10 @@ impl RabitqIndex {
         index: Option<IvfRabitqIndex>,
         dimensions: Option<usize>,
     ) -> Result<()> {
-        let mut state = self.state.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ state lock error: {}", e))
-        })?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ state lock error: {}", e)))?;
         state.cached_index = index;
         state.dimensions = dimensions;
         state.dirty = false;
@@ -102,16 +106,18 @@ impl RabitqIndex {
     }
 
     fn current_dimensions(&self) -> Result<Option<usize>> {
-        let state = self.state.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ state lock error: {}", e))
-        })?;
+        let state = self
+            .state
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ state lock error: {}", e)))?;
         Ok(state.dimensions)
     }
 
     fn set_dimensions_if_empty(&self, dimensions: usize) -> Result<()> {
-        let mut state = self.state.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ state lock error: {}", e))
-        })?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ state lock error: {}", e)))?;
         if state.dimensions.is_none() {
             state.dimensions = Some(dimensions);
         }
@@ -137,7 +143,10 @@ impl RabitqIndex {
         }
 
         let dimensions = rows[0].dimension;
-        if rows.iter().any(|row| row.dimension != dimensions || row.vector.len() != dimensions) {
+        if rows
+            .iter()
+            .any(|row| row.dimension != dimensions || row.vector.len() != dimensions)
+        {
             return Err(Error::Storage(
                 "Stored vectors have inconsistent dimensions".to_string(),
             ));
@@ -146,9 +155,10 @@ impl RabitqIndex {
         self.set_dimensions_if_empty(dimensions)?;
 
         let dirty = {
-            let state = self.state.lock().map_err(|e| {
-                Error::Storage(format!("RaBitQ state lock error: {}", e))
-            })?;
+            let state = self
+                .state
+                .lock()
+                .map_err(|e| Error::Storage(format!("RaBitQ state lock error: {}", e)))?;
             state.dirty
         };
 
@@ -161,9 +171,10 @@ impl RabitqIndex {
         }
 
         if !dirty {
-            let mut state = self.state.lock().map_err(|e| {
-                Error::Storage(format!("RaBitQ state lock error: {}", e))
-            })?;
+            let mut state = self
+                .state
+                .lock()
+                .map_err(|e| Error::Storage(format!("RaBitQ state lock error: {}", e)))?;
             if state.cached_index.is_none() {
                 if self.layout.index_path.exists() {
                     match IvfRabitqIndex::load_from_path(&self.layout.index_path) {
@@ -222,9 +233,10 @@ impl RabitqIndex {
             .save_to_path(&self.layout.index_path)
             .map_err(|error| Error::Storage(format!("RaBitQ index save failed: {}", error)))?;
 
-        let mut state = self.state.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ state lock error: {}", e))
-        })?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ state lock error: {}", e)))?;
         state.cached_index = Some(index);
         state.dimensions = Some(dimensions);
         state.dirty = false;
@@ -238,7 +250,12 @@ impl RabitqIndex {
         Ok(())
     }
 
-    fn exact_search(&self, rows: &[StoredVector], vector: &[f32], top_k: usize) -> Result<Vec<VectorHit>> {
+    fn exact_search(
+        &self,
+        rows: &[StoredVector],
+        vector: &[f32],
+        top_k: usize,
+    ) -> Result<Vec<VectorHit>> {
         let mut hits = Vec::with_capacity(rows.len());
         for row in rows {
             let distance = l2_distance(&row.vector, vector)?;
@@ -277,9 +294,10 @@ impl VectorIndex for RabitqIndex {
             table
         );
 
-        let conn = self.db.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ database lock error: {}", e))
-        })?;
+        let conn = self
+            .db
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ database lock error: {}", e)))?;
         conn.execute(
             &sql,
             params![
@@ -305,9 +323,10 @@ impl VectorIndex for RabitqIndex {
 
         let table = self.layout.table_name.clone();
         let sql = format!("DELETE FROM \"{}\" WHERE id = ?1", table);
-        let mut conn = self.db.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ database lock error: {}", e))
-        })?;
+        let mut conn = self
+            .db
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ database lock error: {}", e)))?;
         let tx = conn.transaction().map_err(map_sqlite_error)?;
         {
             let mut stmt = tx.prepare(&sql).map_err(map_sqlite_error)?;
@@ -341,9 +360,10 @@ impl VectorIndex for RabitqIndex {
         }
 
         let id_order: Vec<String> = rows.iter().map(|row| row.id.clone()).collect();
-        let state = self.state.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ state lock error: {}", e))
-        })?;
+        let state = self
+            .state
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ state lock error: {}", e)))?;
         let Some(index) = state.cached_index.as_ref() else {
             return self.exact_search(&rows, vector, top_k);
         };
@@ -374,9 +394,10 @@ impl VectorIndex for RabitqIndex {
 
     fn stats(&self) -> Result<serde_json::Value> {
         let count = self.vector_count()?;
-        let state = self.state.lock().map_err(|e| {
-            Error::Storage(format!("RaBitQ state lock error: {}", e))
-        })?;
+        let state = self
+            .state
+            .lock()
+            .map_err(|e| Error::Storage(format!("RaBitQ state lock error: {}", e)))?;
         Ok(json!({
             "backend": "rabitq",
             "table": self.layout.table_name,
@@ -391,9 +412,10 @@ impl VectorIndex for RabitqIndex {
         let table = self.layout.table_name.clone();
         let sql = format!("DELETE FROM \"{}\"", table);
         {
-            let conn = self.db.lock().map_err(|e| {
-                Error::Storage(format!("RaBitQ database lock error: {}", e))
-            })?;
+            let conn = self
+                .db
+                .lock()
+                .map_err(|e| Error::Storage(format!("RaBitQ database lock error: {}", e)))?;
             conn.execute(&sql, []).map_err(map_sqlite_error)?;
         }
 
@@ -495,9 +517,8 @@ fn load_rows_from_conn(conn: &Connection, table_name: &str) -> Result<Vec<Stored
         let id: String = row.get(0).map_err(map_sqlite_error)?;
         let vector_blob: Vec<u8> = row.get(1).map_err(map_sqlite_error)?;
         let dimension = row.get::<_, i64>(2).map_err(map_sqlite_error)? as usize;
-        let vector: Vec<f32> = serde_json::from_slice(&vector_blob).map_err(|error| {
-            Error::Storage(format!("Failed to decode vector blob: {}", error))
-        })?;
+        let vector: Vec<f32> = serde_json::from_slice(&vector_blob)
+            .map_err(|error| Error::Storage(format!("Failed to decode vector blob: {}", error)))?;
         if vector.len() != dimension {
             return Err(Error::Storage(format!(
                 "Stored vector dimension mismatch for id {}: expected {}, got {}",
@@ -574,7 +595,9 @@ mod tests {
         for i in 0..48 {
             let value = i as f32;
             let vector = vec![value, value + 0.1, value + 0.2];
-            index.upsert(&format!("memory-{}", i), &vector, &meta).unwrap();
+            index
+                .upsert(&format!("memory-{}", i), &vector, &meta)
+                .unwrap();
         }
 
         let hits = index.search(&[1.0, 1.1, 1.2], 5).unwrap();

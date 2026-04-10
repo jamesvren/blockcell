@@ -156,10 +156,7 @@ mod tests {
         }
 
         fn last_upsert(&self) -> Option<Value> {
-            self.last_upsert
-                .lock()
-                .expect("last_upsert lock")
-                .clone()
+            self.last_upsert.lock().expect("last_upsert lock").clone()
         }
 
         fn upsert_calls(&self) -> usize {

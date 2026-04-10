@@ -112,26 +112,37 @@ pub(super) async fn handle_qq_webhook(
     use axum::http::StatusCode;
 
     if !state.config.channels.qq.enabled {
-        return (StatusCode::OK, axum::Json(serde_json::json!({"retcode": 0}))).into_response();
+        return (
+            StatusCode::OK,
+            axum::Json(serde_json::json!({"retcode": 0})),
+        )
+            .into_response();
     }
 
     let payload: serde_json::Value = match serde_json::from_str(&body) {
         Ok(p) => p,
         Err(e) => {
             tracing::error!(error = %e, "QQ webhook invalid JSON");
-            return (StatusCode::OK, axum::Json(serde_json::json!({"retcode": 0}))).into_response();
+            return (
+                StatusCode::OK,
+                axum::Json(serde_json::json!({"retcode": 0})),
+            )
+                .into_response();
         }
     };
 
-    let qq_channel = blockcell_channels::qq::QQChannel::new(state.config.clone(), state.inbound_tx.clone());
+    let qq_channel =
+        blockcell_channels::qq::QQChannel::new(state.config.clone(), state.inbound_tx.clone());
 
     match qq_channel.handle_webhook_payload(&payload).await {
-        Ok(resp_json) => {
-            (StatusCode::OK, axum::Json(resp_json)).into_response()
-        }
+        Ok(resp_json) => (StatusCode::OK, axum::Json(resp_json)).into_response(),
         Err(e) => {
             tracing::error!(error = %e, "QQ webhook processing error");
-            (StatusCode::OK, axum::Json(serde_json::json!({"retcode": 1}))).into_response()
+            (
+                StatusCode::OK,
+                axum::Json(serde_json::json!({"retcode": 1})),
+            )
+                .into_response()
         }
     }
 }

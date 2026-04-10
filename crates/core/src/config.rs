@@ -1152,11 +1152,11 @@ fn default_napcat_server_host() -> String {
 }
 
 fn default_napcat_server_port() -> u16 {
-    13005  // NapCatQQ client 默认连接 ws://localhost:13005
+    13005 // NapCatQQ client 默认连接 ws://localhost:13005
 }
 
 fn default_napcat_server_path() -> String {
-    "/".to_string()  // NapCatQQ client 默认连接 ws://localhost:13005，路径为 /
+    "/".to_string() // NapCatQQ client 默认连接 ws://localhost:13005，路径为 /
 }
 
 fn default_napcat_heartbeat_interval() -> u32 {

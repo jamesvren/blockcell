@@ -13,17 +13,16 @@
 //! 3. Consolidate - 整合知识（使用 Forked Agent）
 //! 4. Prune - 修剪索引
 
+use blockcell_agent::forked::{
+    create_dream_can_use_tool, run_forked_agent, CacheSafeParams, ForkedAgentParams,
+};
+use blockcell_agent::memory_event;
+use blockcell_core::types::ChatMessage;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::fs;
-use serde::{Deserialize, Serialize};
-use blockcell_core::types::ChatMessage;
-use blockcell_agent::forked::{
-    run_forked_agent, ForkedAgentParams, CacheSafeParams,
-    create_dream_can_use_tool,
-};
-use blockcell_agent::memory_event;
 
 /// 门控配置
 pub const TIME_GATE_THRESHOLD_HOURS: u64 = 24;
@@ -98,9 +97,7 @@ impl DreamState {
                     }
                 }
             }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                Ok(Self::default())
-            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(e) => Err(e),
         }
     }
@@ -167,7 +164,9 @@ pub fn check_gates(state: &DreamState, _config_dir: &Path) -> GateCheckResult {
     }
 
     // 3. 检查会话门控
-    let new_sessions = state.current_session_count.saturating_sub(state.last_session_count);
+    let new_sessions = state
+        .current_session_count
+        .saturating_sub(state.last_session_count);
     if new_sessions < SESSION_GATE_THRESHOLD {
         return GateCheckResult::SessionGateFailed;
     }
@@ -199,7 +198,10 @@ impl DreamConsolidator {
     /// 设置 Provider 池
     ///
     /// 必须在调用 `dream()` 之前设置，否则 Forked Agent 无法执行 LLM 调用
-    pub fn with_provider_pool(mut self, provider_pool: Arc<blockcell_providers::ProviderPool>) -> Self {
+    pub fn with_provider_pool(
+        mut self,
+        provider_pool: Arc<blockcell_providers::ProviderPool>,
+    ) -> Self {
         self.provider_pool = Some(provider_pool);
         self
     }
@@ -216,7 +218,9 @@ impl DreamConsolidator {
 
         // 记录 Layer 6 dream_started 事件
         let sessions_count = self.state.current_session_count;
-        let hours_since_last = self.state.last_consolidation_time
+        let hours_since_last = self
+            .state
+            .last_consolidation_time
             .map(|t| {
                 let now = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -295,7 +299,8 @@ impl DreamConsolidator {
             Ok(()) => {
                 // 记录 Layer 6 dream_finished 事件（成功，传递实际统计数据）
                 memory_event!(
-                    layer6, dream_finished,
+                    layer6,
+                    dream_finished,
                     stats.memories_created,
                     stats.memories_updated,
                     stats.memories_deleted,
@@ -337,7 +342,9 @@ impl DreamConsolidator {
         use std::process;
 
         let lock_path = self.config_dir.join(LOCK_FILE_NAME);
-        let temp_lock_path = self.config_dir.join(format!("{}.tmp.{}", LOCK_FILE_NAME, process::id()));
+        let temp_lock_path =
+            self.config_dir
+                .join(format!("{}.tmp.{}", LOCK_FILE_NAME, process::id()));
         let current_pid = process::id();
         let max_retries = 3;
 
@@ -364,10 +371,7 @@ impl DreamConsolidator {
                     match self.check_lock_validity(&lock_path).await {
                         Ok(true) => {
                             // 锁仍然有效，清理临时文件并返回
-                            tracing::debug!(
-                                attempt,
-                                "[dream] Lock is held by another process"
-                            );
+                            tracing::debug!(attempt, "[dream] Lock is held by another process");
                             let _ = fs::remove_file(&temp_lock_path).await;
                             return Err(DreamError::LockAcquired);
                         }
@@ -484,10 +488,7 @@ impl DreamConsolidator {
 
         if age_hours >= TIME_GATE_THRESHOLD_HOURS {
             // 锁已过期
-            tracing::debug!(
-                age_hours,
-                "[dream] Lock expired"
-            );
+            tracing::debug!(age_hours, "[dream] Lock expired");
             return Ok(false);
         }
 
@@ -518,10 +519,10 @@ impl DreamConsolidator {
     #[cfg(windows)]
     fn is_process_alive(&self, pid: u32) -> bool {
         // Windows: 尝试打开进程
+        use winapi::um::handleapi::CloseHandle;
+        use winapi::um::processthreadsapi::GetExitCodeProcess;
         use winapi::um::processthreadsapi::OpenProcess;
         use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
-        use winapi::um::processthreadsapi::GetExitCodeProcess;
-        use winapi::um::handleapi::CloseHandle;
 
         unsafe {
             let handle = OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid);
@@ -645,7 +646,11 @@ impl DreamConsolidator {
     }
 
     /// 从 session memory 内容中提取信号
-    fn extract_signals_from_memory(&self, content: &str, modified_time: SystemTime) -> Vec<GatheredSignal> {
+    fn extract_signals_from_memory(
+        &self,
+        content: &str,
+        modified_time: SystemTime,
+    ) -> Vec<GatheredSignal> {
         let mut signals = Vec::new();
 
         // 按章节分割
@@ -722,7 +727,9 @@ impl DreamConsolidator {
         );
 
         // 检查 provider_pool
-        let provider_pool = self.provider_pool.as_ref()
+        let provider_pool = self
+            .provider_pool
+            .as_ref()
             .ok_or(DreamError::NoProviderPool)?;
 
         // 构建整合提示（包含收集的信号）
@@ -747,7 +754,9 @@ impl DreamConsolidator {
             .max_turns(10)
             .skip_transcript(true)
             .build()
-            .map_err(|e| DreamError::ConsolidationFailed(format!("Failed to build params: {}", e)))?;
+            .map_err(|e| {
+                DreamError::ConsolidationFailed(format!("Failed to build params: {}", e))
+            })?;
 
         let result = run_forked_agent(params).await;
 
@@ -781,7 +790,8 @@ impl DreamConsolidator {
             let mut section = String::new();
             section.push_str("以下是从最近会话中收集的新信号（按重要性排序）：\n\n");
 
-            for signal in sorted_signals.iter().take(20) { // 限制最多20个信号
+            for signal in sorted_signals.iter().take(20) {
+                // 限制最多20个信号
                 section.push_str(&format!(
                     "### {} (重要性: {}/10)\n{}\n\n",
                     signal.title, signal.importance, signal.content
@@ -873,7 +883,10 @@ impl DreamConsolidator {
             let session_dir = entry.path();
 
             // 检查是否为活跃会话
-            if self.is_session_active(&session_dir, now, active_threshold).await? {
+            if self
+                .is_session_active(&session_dir, now, active_threshold)
+                .await?
+            {
                 skipped_active += 1;
                 continue;
             }
@@ -959,7 +972,8 @@ impl DreamConsolidator {
     async fn scan_memory_dir(&self, memory_dir: &Path) -> MemoryDirState {
         let mut file_count = 0;
         let mut total_bytes = 0u64;
-        let mut file_mtimes: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+        let mut file_mtimes: std::collections::HashMap<String, u64> =
+            std::collections::HashMap::new();
 
         match fs::try_exists(memory_dir).await {
             Ok(true) => {}
@@ -1187,9 +1201,18 @@ mod tests {
     #[test]
     fn test_gate_check_result_variants() {
         // 确保所有变体都能正确创建和比较
-        assert_eq!(GateCheckResult::TimeGateFailed, GateCheckResult::TimeGateFailed);
-        assert_eq!(GateCheckResult::SessionGateFailed, GateCheckResult::SessionGateFailed);
-        assert_eq!(GateCheckResult::LockGateFailed, GateCheckResult::LockGateFailed);
+        assert_eq!(
+            GateCheckResult::TimeGateFailed,
+            GateCheckResult::TimeGateFailed
+        );
+        assert_eq!(
+            GateCheckResult::SessionGateFailed,
+            GateCheckResult::SessionGateFailed
+        );
+        assert_eq!(
+            GateCheckResult::LockGateFailed,
+            GateCheckResult::LockGateFailed
+        );
         assert_eq!(GateCheckResult::Passed, GateCheckResult::Passed);
     }
 

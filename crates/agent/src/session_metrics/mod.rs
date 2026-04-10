@@ -9,16 +9,19 @@
 //! - Layer 6: Auto Dream
 //! - Layer 7: Forked Agent
 
-mod memory;
 mod circuit_breaker;
+mod memory;
 mod summary;
 
-pub use memory::{MemoryMetrics, get_memory_metrics, Layer1Metrics, Layer2Metrics,
-    Layer3Metrics, Layer4Metrics, Layer5Metrics, Layer6Metrics, Layer7Metrics};
-pub use circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitState,
-    get_compact_circuit_breaker, get_memory_extraction_circuit_breaker,
-    get_dream_circuit_breaker, reset_all_circuit_breakers};
-pub use summary::{MetricsSummary, get_metrics_summary, reset_metrics, format_metrics_table};
+pub use circuit_breaker::{
+    get_compact_circuit_breaker, get_dream_circuit_breaker, get_memory_extraction_circuit_breaker,
+    reset_all_circuit_breakers, CircuitBreaker, CircuitBreakerConfig, CircuitState,
+};
+pub use memory::{
+    get_memory_metrics, Layer1Metrics, Layer2Metrics, Layer3Metrics, Layer4Metrics, Layer5Metrics,
+    Layer6Metrics, Layer7Metrics, MemoryMetrics,
+};
+pub use summary::{format_metrics_table, get_metrics_summary, reset_metrics, MetricsSummary};
 
 use std::time::Instant;
 use tracing::info;

@@ -13,21 +13,18 @@
 //! | Bash | ✅ 只读命令 |
 //! | Edit/Write | ✅ 仅 memory 目录 |
 
-mod memory_type;
-mod extractor;
 mod cursor;
+mod extractor;
 mod injector;
+mod memory_type;
 
-pub use memory_type::{MemoryType, MEMORY_FILE_NAMES, get_memory_file_path};
-pub use extractor::{
-    AutoMemoryExtractor, ExtractionResult, ExtractionParams,
-    should_extract_auto_memory, extract_auto_memory,
-};
 pub use cursor::{ExtractionCursor, ExtractionCursorManager};
-pub use injector::{
-    MemoryInjector, InjectionConfig, InjectedMemory,
-    format_memory_for_context,
+pub use extractor::{
+    extract_auto_memory, should_extract_auto_memory, AutoMemoryExtractor, ExtractionParams,
+    ExtractionResult,
 };
+pub use injector::{format_memory_for_context, InjectedMemory, InjectionConfig, MemoryInjector};
+pub use memory_type::{get_memory_file_path, MemoryType, MEMORY_FILE_NAMES};
 
 /// 记忆提取配置
 pub const MIN_MESSAGES_FOR_EXTRACTION: usize = 15;

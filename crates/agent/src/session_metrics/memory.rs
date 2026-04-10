@@ -79,8 +79,10 @@ impl Layer1Metrics {
     /// Record a tool result persisted.
     pub fn record_persisted(&self, original_size: u64, preview_size: u64) {
         self.persisted_count.fetch_add(1, Ordering::Relaxed);
-        self.total_original_size.fetch_add(original_size, Ordering::Relaxed);
-        self.total_preview_size.fetch_add(preview_size, Ordering::Relaxed);
+        self.total_original_size
+            .fetch_add(original_size, Ordering::Relaxed);
+        self.total_preview_size
+            .fetch_add(preview_size, Ordering::Relaxed);
     }
 
     /// Record a budget exceeded event.
@@ -112,7 +114,8 @@ impl Layer1Metrics {
     /// Record config settings for Layer 1.
     pub fn record_config(&self, max_results: u64, preview_limit: u64) {
         self.max_tool_results.store(max_results, Ordering::Relaxed);
-        self.preview_size_limit.store(preview_limit, Ordering::Relaxed);
+        self.preview_size_limit
+            .store(preview_limit, Ordering::Relaxed);
     }
 
     /// Update current stored results count.
@@ -193,7 +196,7 @@ impl Layer2Metrics {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
-            Ordering::Relaxed
+            Ordering::Relaxed,
         );
     }
 
@@ -205,7 +208,8 @@ impl Layer2Metrics {
 
     /// Record config settings for Layer 2.
     pub fn record_config(&self, gap_minutes: u64, keep_recent: u64) {
-        self.gap_threshold_minutes.store(gap_minutes, Ordering::Relaxed);
+        self.gap_threshold_minutes
+            .store(gap_minutes, Ordering::Relaxed);
         self.keep_recent.store(keep_recent, Ordering::Relaxed);
     }
 
@@ -278,13 +282,14 @@ impl Layer3Metrics {
     /// Record an extraction event.
     pub fn record_extraction(&self, token_estimate: u64) {
         self.extraction_count.fetch_add(1, Ordering::Relaxed);
-        self.total_token_estimate.fetch_add(token_estimate, Ordering::Relaxed);
+        self.total_token_estimate
+            .fetch_add(token_estimate, Ordering::Relaxed);
         self.last_extraction_timestamp.store(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
-            Ordering::Relaxed
+            Ordering::Relaxed,
         );
     }
 
@@ -297,7 +302,8 @@ impl Layer3Metrics {
     /// Record config settings for Layer 3.
     pub fn record_config(&self, max_total: u64, max_section: u64) {
         self.max_total_tokens.store(max_total, Ordering::Relaxed);
-        self.max_section_length.store(max_section, Ordering::Relaxed);
+        self.max_section_length
+            .store(max_section, Ordering::Relaxed);
     }
 
     /// Update section count.
@@ -409,7 +415,13 @@ impl Layer4Metrics {
         cache_read: u64,
         cache_creation: u64,
     ) {
-        self.record_compact_success_with_type(pre_tokens, post_tokens, cache_read, cache_creation, true);
+        self.record_compact_success_with_type(
+            pre_tokens,
+            post_tokens,
+            cache_read,
+            cache_creation,
+            true,
+        );
     }
 
     /// Record a successful compact with type distinction.
@@ -428,17 +440,21 @@ impl Layer4Metrics {
             self.manual_compact_count.fetch_add(1, Ordering::Relaxed);
         }
         self.consecutive_failures.store(0, Ordering::Relaxed);
-        self.total_pre_compact_tokens.fetch_add(pre_tokens, Ordering::Relaxed);
-        self.total_post_compact_tokens.fetch_add(post_tokens, Ordering::Relaxed);
-        self.total_cache_read_tokens.fetch_add(cache_read, Ordering::Relaxed);
-        self.total_cache_creation_tokens.fetch_add(cache_creation, Ordering::Relaxed);
+        self.total_pre_compact_tokens
+            .fetch_add(pre_tokens, Ordering::Relaxed);
+        self.total_post_compact_tokens
+            .fetch_add(post_tokens, Ordering::Relaxed);
+        self.total_cache_read_tokens
+            .fetch_add(cache_read, Ordering::Relaxed);
+        self.total_cache_creation_tokens
+            .fetch_add(cache_creation, Ordering::Relaxed);
         // 更新时间戳
         self.last_compact_timestamp.store(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
-            Ordering::Relaxed
+            Ordering::Relaxed,
         );
     }
 
@@ -451,8 +467,10 @@ impl Layer4Metrics {
     /// Record config settings for Layer 4.
     pub fn record_config(&self, budget: u64, threshold: f64, recovery_budget: u64) {
         self.token_budget.store(budget, Ordering::Relaxed);
-        self.threshold_ratio.store((threshold * 1000.0) as u64, Ordering::Relaxed);
-        self.total_recovery_budget.store(recovery_budget, Ordering::Relaxed);
+        self.threshold_ratio
+            .store((threshold * 1000.0) as u64, Ordering::Relaxed);
+        self.total_recovery_budget
+            .store(recovery_budget, Ordering::Relaxed);
     }
 
     /// Update current token usage (实时状态).
@@ -626,13 +644,14 @@ impl Layer5Metrics {
     /// Record a memory written event.
     pub fn record_memory_written(&self, memory_type: &str, content_len: u64) {
         self.extraction_count.fetch_add(1, Ordering::Relaxed);
-        self.total_bytes_written.fetch_add(content_len, Ordering::Relaxed);
+        self.total_bytes_written
+            .fetch_add(content_len, Ordering::Relaxed);
         self.last_extraction_timestamp.store(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
-            Ordering::Relaxed
+            Ordering::Relaxed,
         );
 
         match memory_type {
@@ -646,11 +665,13 @@ impl Layer5Metrics {
             }
             "feedback" => {
                 self.feedback_memories.fetch_add(1, Ordering::Relaxed);
-                self.feedback_bytes.fetch_add(content_len, Ordering::Relaxed);
+                self.feedback_bytes
+                    .fetch_add(content_len, Ordering::Relaxed);
             }
             "reference" => {
                 self.reference_memories.fetch_add(1, Ordering::Relaxed);
-                self.reference_bytes.fetch_add(content_len, Ordering::Relaxed);
+                self.reference_bytes
+                    .fetch_add(content_len, Ordering::Relaxed);
             }
             _ => {}
         };
@@ -660,8 +681,10 @@ impl Layer5Metrics {
     pub fn record_injection(&self, user: u64, project: u64, feedback: u64, reference: u64) {
         self.user_memories.fetch_add(user, Ordering::Relaxed);
         self.project_memories.fetch_add(project, Ordering::Relaxed);
-        self.feedback_memories.fetch_add(feedback, Ordering::Relaxed);
-        self.reference_memories.fetch_add(reference, Ordering::Relaxed);
+        self.feedback_memories
+            .fetch_add(feedback, Ordering::Relaxed);
+        self.reference_memories
+            .fetch_add(reference, Ordering::Relaxed);
     }
 
     /// Record config settings for Layer 5.
@@ -793,22 +816,31 @@ impl Layer6Metrics {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
-            Ordering::Relaxed
+            Ordering::Relaxed,
         );
     }
 
     /// Record a dream finished event.
-    pub fn record_dream_finished(&self, created: u64, updated: u64, deleted: u64, pruned: u64, sessions: u64) {
+    pub fn record_dream_finished(
+        &self,
+        created: u64,
+        updated: u64,
+        deleted: u64,
+        pruned: u64,
+        sessions: u64,
+    ) {
         self.memories_created.fetch_add(created, Ordering::Relaxed);
         self.memories_updated.fetch_add(updated, Ordering::Relaxed);
         self.memories_deleted.fetch_add(deleted, Ordering::Relaxed);
         self.sessions_pruned.fetch_add(pruned, Ordering::Relaxed);
-        self.sessions_processed.fetch_add(sessions, Ordering::Relaxed);
+        self.sessions_processed
+            .fetch_add(sessions, Ordering::Relaxed);
     }
 
     /// Record config settings for Layer 6.
     pub fn record_config(&self, interval_hours: u64) {
-        self.dream_interval_hours.store(interval_hours, Ordering::Relaxed);
+        self.dream_interval_hours
+            .store(interval_hours, Ordering::Relaxed);
     }
 
     /// Get the dream count.
@@ -923,7 +955,8 @@ impl Layer7Metrics {
         self.completed_count.fetch_add(1, Ordering::Relaxed);
         self.total_turns_used.fetch_add(turns, Ordering::Relaxed);
         self.total_tokens_used.fetch_add(tokens, Ordering::Relaxed);
-        self.total_completion_time_ms.fetch_add(duration_ms, Ordering::Relaxed);
+        self.total_completion_time_ms
+            .fetch_add(duration_ms, Ordering::Relaxed);
         self.active_count.fetch_sub(1, Ordering::Relaxed);
     }
 

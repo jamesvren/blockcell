@@ -65,7 +65,8 @@ impl DirectHttpDownloader {
     async fn download_with_client(&self, url: &str) -> Result<Vec<u8>> {
         debug!(url = %url, "Starting HTTP download with client");
 
-        let response = self.client
+        let response = self
+            .client
             .get(url)
             .send()
             .await
@@ -113,11 +114,14 @@ impl MediaDownloader for DirectHttpDownloader {
         let data = self.download_with_client(url).await?;
 
         // Determine filename - handle empty string case
-        let filename = request.filename.clone()
+        let filename = request
+            .filename
+            .clone()
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| {
-                super::detector::extract_filename_from_url(url)
-                    .unwrap_or_else(|| format!("media_{}", chrono::Utc::now().format("%Y%m%d_%H%M%S")))
+                super::detector::extract_filename_from_url(url).unwrap_or_else(|| {
+                    format!("media_{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"))
+                })
             });
 
         // Save to local file
@@ -228,9 +232,8 @@ pub async fn download_with_retry(
         }
     }
 
-    Err(last_error.unwrap_or_else(|| {
-        Error::Channel(format!("All {} download attempts failed", max_retries))
-    }))
+    Err(last_error
+        .unwrap_or_else(|| Error::Channel(format!("All {} download attempts failed", max_retries))))
 }
 
 /// Check if a URL is reachable via HTTP HEAD request.
@@ -254,11 +257,10 @@ pub async fn get_content_length(url: &str) -> Option<u64> {
         .unwrap_or_else(|_| Client::new());
 
     match client.head(url).send().await {
-        Ok(response) => response.headers().get("content-length").and_then(|v| {
-            v.to_str()
-                .ok()
-                .and_then(|s| s.parse::<u64>().ok())
-        }),
+        Ok(response) => response
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok().and_then(|s| s.parse::<u64>().ok())),
         Err(_) => None,
     }
 }

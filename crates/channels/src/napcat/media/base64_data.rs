@@ -149,7 +149,10 @@ impl MediaDownloader for Base64DataDownloader {
         let start_time = Instant::now();
         let url = &request.source;
 
-        debug!(url_prefix = &url[..50.min(url.len())], "Processing base64 data URL");
+        debug!(
+            url_prefix = &url[..50.min(url.len())],
+            "Processing base64 data URL"
+        );
 
         // Decode the base64 data
         let (data, mime_type) = Self::decode_data_url(url)?;
@@ -161,12 +164,17 @@ impl MediaDownloader for Base64DataDownloader {
         );
 
         // Determine filename - handle empty string case
-        let filename = request.filename.clone()
+        let filename = request
+            .filename
+            .clone()
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| {
-                let ext = Self::suggest_extension(mime_type.as_deref())
-                    .unwrap_or("bin");
-                format!("media_{}.{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"), ext)
+                let ext = Self::suggest_extension(mime_type.as_deref()).unwrap_or("bin");
+                format!(
+                    "media_{}.{}",
+                    chrono::Utc::now().format("%Y%m%d_%H%M%S"),
+                    ext
+                )
             });
 
         // Save to local file
@@ -229,11 +237,26 @@ mod tests {
 
     #[test]
     fn test_suggest_extension() {
-        assert_eq!(Base64DataDownloader::suggest_extension(Some("image/png")), Some("png"));
-        assert_eq!(Base64DataDownloader::suggest_extension(Some("image/jpeg")), Some("jpg"));
-        assert_eq!(Base64DataDownloader::suggest_extension(Some("audio/mpeg")), Some("mp3"));
-        assert_eq!(Base64DataDownloader::suggest_extension(Some("video/mp4")), Some("mp4"));
-        assert_eq!(Base64DataDownloader::suggest_extension(Some("application/unknown")), None);
+        assert_eq!(
+            Base64DataDownloader::suggest_extension(Some("image/png")),
+            Some("png")
+        );
+        assert_eq!(
+            Base64DataDownloader::suggest_extension(Some("image/jpeg")),
+            Some("jpg")
+        );
+        assert_eq!(
+            Base64DataDownloader::suggest_extension(Some("audio/mpeg")),
+            Some("mp3")
+        );
+        assert_eq!(
+            Base64DataDownloader::suggest_extension(Some("video/mp4")),
+            Some("mp4")
+        );
+        assert_eq!(
+            Base64DataDownloader::suggest_extension(Some("application/unknown")),
+            None
+        );
         assert_eq!(Base64DataDownloader::suggest_extension(None), None);
     }
 

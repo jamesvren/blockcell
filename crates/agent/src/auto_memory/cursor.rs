@@ -13,12 +13,12 @@
 //! 使用 `Instant` (monotonic clock) 替代 `SystemTime` 进行时间差计算，
 //! 避免系统时钟调整（NTP 同步、手动修改、时区变化等）导致的问题。
 
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use std::time::Instant;
-use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::time::Instant;
 use tokio::fs;
+use uuid::Uuid;
 
 use super::memory_type::MemoryType;
 
@@ -124,10 +124,11 @@ impl ExtractionCursor {
                 // 计算签名差异
                 // 简单实现：签名不同就算有变化
                 // 更复杂实现：可以计算内容长度差异
-                current_signature != last_sig &&
-                    current_content.len().saturating_sub(
-                        estimate_content_len_from_signature(last_sig)
-                    ) >= CONTENT_CHANGE_THRESHOLD
+                current_signature != last_sig
+                    && current_content
+                        .len()
+                        .saturating_sub(estimate_content_len_from_signature(last_sig))
+                        >= CONTENT_CHANGE_THRESHOLD
             }
             None => true, // 从未提取过，内容变化通过
         }
@@ -223,7 +224,7 @@ impl ExtractionCursor {
                     );
                     0
                 }
-            }
+            },
         );
         self.extraction_count += 1;
     }
@@ -241,19 +242,14 @@ pub enum ExtractionDecision {
     /// 可以进行提取
     Proceed,
     /// 需要等待
-    Wait {
-        reason: ExtractionWaitReason,
-    },
+    Wait { reason: ExtractionWaitReason },
 }
 
 /// 等待原因
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExtractionWaitReason {
     /// 消息计数冷却未满足
-    MessageCooldown {
-        current: usize,
-        required: usize,
-    },
+    MessageCooldown { current: usize, required: usize },
     /// 时间冷却未满足
     TimeCooldown {
         elapsed_secs: u64,
@@ -339,10 +335,9 @@ impl ExtractionCursorManager {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis())
             .unwrap_or(0);
-        let temp_path = self.cursor_file_path.with_extension(format!(
-            "tmp.{}.{}",
-            pid, timestamp
-        ));
+        let temp_path = self
+            .cursor_file_path
+            .with_extension(format!("tmp.{}.{}", pid, timestamp));
 
         // 写入临时文件
         fs::write(&temp_path, &content).await?;
@@ -364,7 +359,8 @@ impl ExtractionCursorManager {
 
     /// 更新游标
     pub fn update_cursor(&mut self, cursor: ExtractionCursor) {
-        self.cursors.insert(cursor.memory_type.name().to_string(), cursor);
+        self.cursors
+            .insert(cursor.memory_type.name().to_string(), cursor);
     }
 
     /// 获取所有游标
@@ -379,7 +375,8 @@ impl ExtractionCursorManager {
     pub fn reset_all(&mut self) {
         self.cursors.clear();
         for mt in MemoryType::all() {
-            self.cursors.insert(mt.name().to_string(), ExtractionCursor::new(mt));
+            self.cursors
+                .insert(mt.name().to_string(), ExtractionCursor::new(mt));
         }
     }
 }

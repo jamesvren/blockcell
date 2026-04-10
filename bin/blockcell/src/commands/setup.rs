@@ -117,10 +117,7 @@ fn configure_provider(
     api_key_flag: Option<&str>,
     model_flag: Option<&str>,
 ) -> anyhow::Result<()> {
-    let entry = config
-        .providers
-        .entry(provider.to_string())
-        .or_default();
+    let entry = config.providers.entry(provider.to_string()).or_default();
 
     if entry.api_base.is_none() {
         entry.api_base = default_api_base_for_provider(provider).map(|s| s.to_string());
@@ -309,8 +306,7 @@ fn configure_channel(config: &mut Config, channel: &str) -> anyhow::Result<()> {
             config.channels.lark.enabled = true;
         }
         "qq" => {
-            let app_id =
-                prompt_optional_with_existing("QQ app_id", &config.channels.qq.app_id)?;
+            let app_id = prompt_optional_with_existing("QQ app_id", &config.channels.qq.app_id)?;
             let app_secret =
                 prompt_optional_with_existing("QQ app_secret", &config.channels.qq.app_secret)?;
             if !app_id.is_empty() {
@@ -346,7 +342,8 @@ fn configure_channel(config: &mut Config, channel: &str) -> anyhow::Result<()> {
                 0 => "ws-client",
                 1 => "ws-server",
                 _ => "ws-client",
-            }.to_string();
+            }
+            .to_string();
 
             // WebSocket URL (only for ws-client mode)
             let ws_url = if mode == "ws-client" {
@@ -403,18 +400,13 @@ fn configure_channel(config: &mut Config, channel: &str) -> anyhow::Result<()> {
             config.channels.napcat.auto_download_media = auto_idx == 0;
 
             if config.channels.napcat.auto_download_media {
-                let max_size_str = prompt_line_with_default(
-                    "最大自动下载大小 (字节)",
-                    "10485760",
-                )?;
+                let max_size_str = prompt_line_with_default("最大自动下载大小 (字节)", "10485760")?;
                 if let Ok(max_size) = max_size_str.parse::<u64>() {
                     config.channels.napcat.max_auto_download_size = max_size;
                 }
 
-                let download_dir = prompt_line_with_default(
-                    "媒体下载目录 (相对于 workspace)",
-                    "downloads",
-                )?;
+                let download_dir =
+                    prompt_line_with_default("媒体下载目录 (相对于 workspace)", "downloads")?;
                 if !download_dir.trim().is_empty() {
                     config.channels.napcat.media_download_dir = download_dir;
                 }

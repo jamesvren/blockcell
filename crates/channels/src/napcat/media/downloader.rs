@@ -11,8 +11,8 @@ use tracing::{debug, warn};
 
 use super::detector::detect_url_type;
 use super::types::{
-    DownloadConfig, DownloadStrategy, MediaType, STRATEGY_FALLBACK_ORDER,
-    UrlDetectionResult, UrlType,
+    DownloadConfig, DownloadStrategy, MediaType, UrlDetectionResult, UrlType,
+    STRATEGY_FALLBACK_ORDER,
 };
 
 /// Unified download request.
@@ -134,7 +134,9 @@ impl DownloaderManager {
         let downloaders: Vec<Box<dyn MediaDownloader>> = vec![
             Box::new(super::base64_data::Base64DataDownloader::new()),
             Box::new(super::local_file::LocalFileDownloader::new()),
-            Box::new(super::napcat_stream::NapCatStreamDownloader::new(config.clone())),
+            Box::new(super::napcat_stream::NapCatStreamDownloader::new(
+                config.clone(),
+            )),
             Box::new(super::direct_http::DirectHttpDownloader::new()),
         ];
 
@@ -192,9 +194,8 @@ impl DownloaderManager {
         }
 
         // All strategies failed
-        let error = last_error.unwrap_or_else(|| {
-            Error::Channel("No suitable downloader found for URL".to_string())
-        });
+        let error = last_error
+            .unwrap_or_else(|| Error::Channel("No suitable downloader found for URL".to_string()));
 
         Err(error)
     }
@@ -219,10 +220,7 @@ impl DownloaderManager {
 ///
 /// This is a lower-level function that downloads data without saving to file.
 /// Returns the raw bytes.
-pub async fn download_raw_data(
-    url: &str,
-    config: &NapCatConfig,
-) -> Result<Vec<u8>> {
+pub async fn download_raw_data(url: &str, config: &NapCatConfig) -> Result<Vec<u8>> {
     let detection = detect_url_type(url, config);
 
     // IMPORTANT: QQ CDN URLs MUST use DirectHttp, not NapCat stream!
@@ -240,7 +238,9 @@ pub async fn download_raw_data(
     }
 
     // Try direct HTTP for external URLs or as fallback
-    if detection.url_type == UrlType::ExternalHttp || detection.strategy == DownloadStrategy::DirectHttp {
+    if detection.url_type == UrlType::ExternalHttp
+        || detection.strategy == DownloadStrategy::DirectHttp
+    {
         return super::direct_http::download_via_http(url).await;
     }
 

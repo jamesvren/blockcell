@@ -189,7 +189,8 @@ impl SkillDocCache {
             existing.clone()
         } else {
             let content = std::fs::read_to_string(&canonical_path)?;
-            self.linked_docs.insert(canonical_path.clone(), content.clone());
+            self.linked_docs
+                .insert(canonical_path.clone(), content.clone());
             content
         };
 
@@ -206,8 +207,7 @@ impl SkillDocCache {
                     canonical_path.display()
                 ))
             })?;
-            self.linked_sections
-                .insert(index_key, extracted.clone());
+            self.linked_sections.insert(index_key, extracted.clone());
             Ok(extracted)
         } else {
             Ok(doc_text)
@@ -397,7 +397,10 @@ fn split_markdown_target(target: &str) -> Option<(&str, Option<&str>)> {
         return None;
     }
 
-    let anchor = parts.next().map(str::trim).filter(|value| !value.is_empty());
+    let anchor = parts
+        .next()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     Some((relative_path, anchor))
 }
 
@@ -571,7 +574,10 @@ fn skill_local_exec_entrypoints(skill: &Skill) -> Vec<String> {
             continue;
         }
 
-        let file_name = path.file_name().and_then(|value| value.to_str()).unwrap_or("");
+        let file_name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
         if matches!(
             file_name,
             "SKILL.md" | "SKILL.py" | "SKILL.rhai" | "meta.yaml" | "meta.json" | "CHANGELOG.md"
@@ -1025,7 +1031,8 @@ impl SkillManager {
         let shared_section = extract_section_by_anchor(&manual, "shared").unwrap_or_default();
         let prompt_section = extract_section_by_anchor(&manual, "prompt").unwrap_or_default();
         let summary_section = extract_section_by_anchor(&manual, "summary").unwrap_or_default();
-        let when_to_use_source = join_markdown_parts(&[shared_section.as_str(), prompt_section.as_str()]);
+        let when_to_use_source =
+            join_markdown_parts(&[shared_section.as_str(), prompt_section.as_str()]);
         let when_to_use = concise_markdown_excerpt(
             if when_to_use_source.trim().is_empty() {
                 &prompt_bundle
@@ -1053,7 +1060,8 @@ impl SkillManager {
                 when_to_use
             },
             outputs: if outputs.is_empty() {
-                skill.meta
+                skill
+                    .meta
                     .output_format
                     .clone()
                     .unwrap_or_else(|| "Answer the user's request directly.".to_string())
@@ -1066,10 +1074,7 @@ impl SkillManager {
         }
     }
 
-    pub fn list_enabled_skills<'a>(
-        &'a self,
-        disabled_skills: &HashSet<String>,
-    ) -> Vec<&'a Skill> {
+    pub fn list_enabled_skills<'a>(&'a self, disabled_skills: &HashSet<String>) -> Vec<&'a Skill> {
         self.skills
             .values()
             .filter(|s| s.available && !disabled_skills.contains(&s.name))
@@ -1326,7 +1331,10 @@ fallback:
         let object = value
             .as_object()
             .expect("skill meta should serialize to an object");
-        let keys = object.keys().cloned().collect::<std::collections::HashSet<_>>();
+        let keys = object
+            .keys()
+            .cloned()
+            .collect::<std::collections::HashSet<_>>();
         let expected = std::collections::HashSet::from([
             "name".to_string(),
             "description".to_string(),
@@ -1417,7 +1425,9 @@ Summarize in Chinese with concise bullets.
         assert!(prompt_bundle.contains("Prompt rules."));
         assert!(!prompt_bundle.contains("argv[0] must be the action."));
 
-        let shared_index = planning_bundle.find("Shared preface.").expect("shared in planning");
+        let shared_index = planning_bundle
+            .find("Shared preface.")
+            .expect("shared in planning");
         let child_index = planning_bundle
             .find("argv[0] must be the action.")
             .expect("planning child in bundle");
@@ -1513,7 +1523,10 @@ tools:
         assert!(card.when_to_use.contains("适合查询城市天气"));
         assert!(card.outputs.contains("输出天气概览"));
         assert_eq!(card.allowed_tools, vec!["web_fetch"]);
-        assert!(card.local_exec_entrypoints.iter().any(|entry| entry == "weather.py"));
+        assert!(card
+            .local_exec_entrypoints
+            .iter()
+            .any(|entry| entry == "weather.py"));
         assert!(card.supports_local_exec);
     }
 

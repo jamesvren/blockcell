@@ -26,7 +26,12 @@ impl ApiRequest {
     /// * `user_id` - 用户QQ
     /// * `message` - 消息内容
     /// * `auto_escape` - 是否作为纯文本发送 (optional)
-    pub fn send_private_msg(user_id: &str, message: &Value, auto_escape: Option<bool>, echo: Option<&str>) -> Self {
+    pub fn send_private_msg(
+        user_id: &str,
+        message: &Value,
+        auto_escape: Option<bool>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "user_id": user_id,
             "message": message,
@@ -47,7 +52,12 @@ impl ApiRequest {
     /// * `group_id` - 群号
     /// * `message` - 消息内容
     /// * `auto_escape` - 是否作为纯文本发送 (optional)
-    pub fn send_group_msg(group_id: &str, message: &Value, auto_escape: Option<bool>, echo: Option<&str>) -> Self {
+    pub fn send_group_msg(
+        group_id: &str,
+        message: &Value,
+        auto_escape: Option<bool>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "group_id": group_id,
             "message": message,
@@ -117,7 +127,12 @@ impl ApiRequest {
     /// * `group_id` - 群号
     /// * `user_id` - 用户QQ
     /// * `reject_add_request` - 是否拒绝加群请求 (optional, default: false)
-    pub fn set_group_kick(group_id: &str, user_id: &str, reject_add_request: Option<bool>, echo: Option<&str>) -> Self {
+    pub fn set_group_kick(
+        group_id: &str,
+        user_id: &str,
+        reject_add_request: Option<bool>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "group_id": group_id,
             "user_id": user_id,
@@ -133,12 +148,7 @@ impl ApiRequest {
     }
 
     /// Create a set group ban request.
-    pub fn set_group_ban(
-        group_id: &str,
-        user_id: &str,
-        duration: u32,
-        echo: Option<&str>,
-    ) -> Self {
+    pub fn set_group_ban(group_id: &str, user_id: &str, duration: u32, echo: Option<&str>) -> Self {
         Self {
             action: "set_group_ban".to_string(),
             params: serde_json::json!({
@@ -155,7 +165,12 @@ impl ApiRequest {
     // =========================================================================
 
     /// Create a set group admin request.
-    pub fn set_group_admin(group_id: &str, user_id: &str, enable: bool, echo: Option<&str>) -> Self {
+    pub fn set_group_admin(
+        group_id: &str,
+        user_id: &str,
+        enable: bool,
+        echo: Option<&str>,
+    ) -> Self {
         Self {
             action: "set_group_admin".to_string(),
             params: serde_json::json!({
@@ -193,7 +208,12 @@ impl ApiRequest {
     }
 
     /// Create a get group member info request.
-    pub fn get_group_member_info(group_id: &str, user_id: &str, no_cache: bool, echo: Option<&str>) -> Self {
+    pub fn get_group_member_info(
+        group_id: &str,
+        user_id: &str,
+        no_cache: bool,
+        echo: Option<&str>,
+    ) -> Self {
         Self {
             action: "get_group_member_info".to_string(),
             params: serde_json::json!({
@@ -253,7 +273,12 @@ impl ApiRequest {
     }
 
     /// Create a set group special title request.
-    pub fn set_group_special_title(group_id: &str, user_id: &str, special_title: &str, echo: Option<&str>) -> Self {
+    pub fn set_group_special_title(
+        group_id: &str,
+        user_id: &str,
+        special_title: &str,
+        echo: Option<&str>,
+    ) -> Self {
         Self {
             action: "set_group_special_title".to_string(),
             params: serde_json::json!({
@@ -321,7 +346,12 @@ impl ApiRequest {
     // =========================================================================
 
     /// Create an upload file request (group).
-    pub fn upload_group_file(group_id: &str, file: &str, name: Option<&str>, echo: Option<&str>) -> Self {
+    pub fn upload_group_file(
+        group_id: &str,
+        file: &str,
+        name: Option<&str>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "group_id": group_id,
             "file": file,
@@ -337,7 +367,12 @@ impl ApiRequest {
     }
 
     /// Create an upload file request (private).
-    pub fn upload_private_file(user_id: &str, file: &str, name: Option<&str>, echo: Option<&str>) -> Self {
+    pub fn upload_private_file(
+        user_id: &str,
+        file: &str,
+        name: Option<&str>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "user_id": user_id,
             "file": file,
@@ -365,7 +400,12 @@ impl ApiRequest {
     }
 
     /// Create a delete file request.
-    pub fn delete_file(group_id: &str, file_id: &str, busid: Option<i32>, echo: Option<&str>) -> Self {
+    pub fn delete_file(
+        group_id: &str,
+        file_id: &str,
+        busid: Option<i32>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "group_id": group_id,
             "file_id": file_id,
@@ -426,7 +466,12 @@ impl ApiRequest {
     }
 
     /// Create a set QQ profile request.
-    pub fn set_qq_profile(nickname: Option<&str>, personal_note: Option<&str>, sex: Option<&str>, echo: Option<&str>) -> Self {
+    pub fn set_qq_profile(
+        nickname: Option<&str>,
+        personal_note: Option<&str>,
+        sex: Option<&str>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({});
         if let Some(n) = nickname {
             params["nickname"] = serde_json::json!(n);
@@ -474,7 +519,12 @@ impl ApiRequest {
     /// * `flag` - 加好友请求的 flag (需从上报中获取)
     /// * `approve` - 是否同意请求
     /// * `remark` - 添加后的好友备注 (optional)
-    pub fn set_friend_add_request(flag: &str, approve: bool, remark: Option<&str>, echo: Option<&str>) -> Self {
+    pub fn set_friend_add_request(
+        flag: &str,
+        approve: bool,
+        remark: Option<&str>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "flag": flag,
             "approve": approve,
@@ -496,7 +546,13 @@ impl ApiRequest {
     /// * `sub_type` - 请求子类型 (add/invite)
     /// * `approve` - 是否同意
     /// * `reason` - 拒绝理由 (optional)
-    pub fn set_group_add_request(flag: &str, sub_type: &str, approve: bool, reason: Option<&str>, echo: Option<&str>) -> Self {
+    pub fn set_group_add_request(
+        flag: &str,
+        sub_type: &str,
+        approve: bool,
+        reason: Option<&str>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "flag": flag,
             "sub_type": sub_type,
@@ -533,7 +589,12 @@ impl ApiRequest {
     /// * `message_id` - 消息ID
     /// * `emoji_id` - 表情ID
     /// * `set` - 是否设置 (optional, default: true)
-    pub fn set_msg_emoji_like(message_id: i64, emoji_id: &str, set: Option<bool>, echo: Option<&str>) -> Self {
+    pub fn set_msg_emoji_like(
+        message_id: i64,
+        emoji_id: &str,
+        set: Option<bool>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "message_id": message_id,
             "emoji_id": emoji_id,
@@ -653,7 +714,12 @@ impl ApiRequest {
     /// * `file` - 文件路径、URL或Base64 (optional)
     /// * `file_id` - 文件ID (optional)
     /// * `out_format` - 输出格式 (required, e.g., "mp3", "amr")
-    pub fn get_record(file: Option<&str>, file_id: Option<&str>, out_format: &str, echo: Option<&str>) -> Self {
+    pub fn get_record(
+        file: Option<&str>,
+        file_id: Option<&str>,
+        out_format: &str,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "out_format": out_format,
         });
@@ -700,7 +766,12 @@ impl ApiRequest {
     }
 
     /// Create a download file request.
-    pub fn download_file(url: &str, thread_count: Option<i32>, headers: Option<&[&str]>, echo: Option<&str>) -> Self {
+    pub fn download_file(
+        url: &str,
+        thread_count: Option<i32>,
+        headers: Option<&[&str]>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "url": url,
         });
@@ -719,7 +790,12 @@ impl ApiRequest {
 
     /// Create a download file stream request.
     /// This API returns file content in chunks via WebSocket or HTTP streaming.
-    pub fn download_file_stream(url: &str, thread_count: Option<i32>, headers: Option<&[&str]>, echo: Option<&str>) -> Self {
+    pub fn download_file_stream(
+        url: &str,
+        thread_count: Option<i32>,
+        headers: Option<&[&str]>,
+        echo: Option<&str>,
+    ) -> Self {
         let mut params = serde_json::json!({
             "url": url,
         });
@@ -909,7 +985,7 @@ pub struct StreamChunkData {
 impl StreamChunkData {
     /// Decode the chunk data from Base64.
     pub fn decode_data(&self) -> Result<Vec<u8>, base64::DecodeError> {
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
         STANDARD.decode(&self.chunk_data)
     }
 }
@@ -1029,7 +1105,8 @@ mod tests {
 
     #[test]
     fn test_api_request_send_private_msg() {
-        let req = ApiRequest::send_private_msg("123456", &serde_json::json!("hello"), None, Some("req1"));
+        let req =
+            ApiRequest::send_private_msg("123456", &serde_json::json!("hello"), None, Some("req1"));
         assert_eq!(req.action, "send_private_msg");
         assert_eq!(req.echo, Some("req1".to_string()));
     }

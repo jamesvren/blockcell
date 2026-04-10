@@ -674,7 +674,9 @@ impl SkillEvolution {
             SkillLayout::LocalScript => {
                 self.build_local_script_audit_prompt(&record.context, &final_script)?
             }
-            SkillLayout::Hybrid => self.build_hybrid_audit_prompt(&record.context, &final_script)?,
+            SkillLayout::Hybrid => {
+                self.build_hybrid_audit_prompt(&record.context, &final_script)?
+            }
             SkillLayout::RhaiOrchestration => {
                 self.build_audit_prompt(&record.context, &final_script)?
             }
@@ -783,81 +785,78 @@ impl SkillEvolution {
             }
             SkillLayout::LocalScript => {
                 info!(evolution_id = %evolution_id, "🔨 [compile] LocalScript skill — running local script syntax/entry validation");
-                let source_path = record
-                    .context
-                    .source_path
-                    .as_deref()
-                    .ok_or_else(|| Error::Evolution("Missing source_path for LocalScript skill".to_string()))?;
+                let source_path = record.context.source_path.as_deref().ok_or_else(|| {
+                    Error::Evolution("Missing source_path for LocalScript skill".to_string())
+                })?;
                 let script_path = self
                     .skill_root_dir_for_record(&record)
                     .join(&record.skill_name)
                     .join(source_path);
                 self.compile_local_script(&script_path).await?
             }
-            SkillLayout::Hybrid => {
-                match record.context.skill_type {
-                    SkillType::Python => {
-                        info!(evolution_id = %evolution_id, "🔨 [compile] Hybrid skill — running Python syntax check for local script asset");
-                        let final_script = self.resolve_final_script(&record.skill_name, &patch.diff)?;
-                        let temp_path = std::env::temp_dir().join(format!("{}_compile.py", record.skill_name));
-                        std::fs::write(&temp_path, &final_script)?;
+            SkillLayout::Hybrid => match record.context.skill_type {
+                SkillType::Python => {
+                    info!(evolution_id = %evolution_id, "🔨 [compile] Hybrid skill — running Python syntax check for local script asset");
+                    let final_script =
+                        self.resolve_final_script(&record.skill_name, &patch.diff)?;
+                    let temp_path =
+                        std::env::temp_dir().join(format!("{}_compile.py", record.skill_name));
+                    std::fs::write(&temp_path, &final_script)?;
 
-                        let output = std::process::Command::new("python3")
-                            .args(["-m", "py_compile", temp_path.to_str().unwrap_or("")])
-                            .output();
+                    let output = std::process::Command::new("python3")
+                        .args(["-m", "py_compile", temp_path.to_str().unwrap_or("")])
+                        .output();
 
-                        let _ = std::fs::remove_file(&temp_path);
+                    let _ = std::fs::remove_file(&temp_path);
 
-                        match output {
-                            Ok(out) if out.status.success() => (true, None),
-                            Ok(out) => {
-                                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-                                (false, Some(format!("Python syntax error:\n{}", stderr)))
-                            }
-                            Err(e) => {
-                                warn!(evolution_id = %evolution_id, "🔨 [compile] python3 not found, skipping syntax check: {}", e);
-                                (true, None)
-                            }
+                    match output {
+                        Ok(out) if out.status.success() => (true, None),
+                        Ok(out) => {
+                            let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                            (false, Some(format!("Python syntax error:\n{}", stderr)))
                         }
-                    }
-                    SkillType::LocalScript => {
-                        info!(evolution_id = %evolution_id, "🔨 [compile] Hybrid skill — validating local script asset");
-                        let source_path = record
-                            .context
-                            .source_path
-                            .as_deref()
-                            .ok_or_else(|| Error::Evolution("Missing source_path for LocalScript skill".to_string()))?;
-                        let script_path = self
-                            .skill_root_dir_for_record(&record)
-                            .join(&record.skill_name)
-                            .join(source_path);
-                        self.compile_local_script(&script_path).await?
-                    }
-                    SkillType::Rhai => {
-                        info!(evolution_id = %evolution_id, "🔨 [compile] Hybrid skill — falling back to Rhai compilation");
-                        let final_script = self.resolve_final_script(&record.skill_name, &patch.diff)?;
-                        self.compile_rhai_check(evolution_id, &record.skill_name, &final_script)
-                            .await?
-                    }
-                    SkillType::PromptOnly => {
-                        info!(evolution_id = %evolution_id, "🔨 [compile] Hybrid skill — checking prompt content length");
-                        let content = patch.diff.trim();
-                        if content.is_empty() {
-                            (false, Some("SKILL.md content is empty".to_string()))
-                        } else if content.len() < 50 {
-                            (
-                                false,
-                                Some(format!(
-                                    "SKILL.md content too short ({} chars, need >= 50)",
-                                    content.len()
-                                )),
-                            )
-                        } else {
+                        Err(e) => {
+                            warn!(evolution_id = %evolution_id, "🔨 [compile] python3 not found, skipping syntax check: {}", e);
                             (true, None)
                         }
                     }
                 }
-            }
+                SkillType::LocalScript => {
+                    info!(evolution_id = %evolution_id, "🔨 [compile] Hybrid skill — validating local script asset");
+                    let source_path = record.context.source_path.as_deref().ok_or_else(|| {
+                        Error::Evolution("Missing source_path for LocalScript skill".to_string())
+                    })?;
+                    let script_path = self
+                        .skill_root_dir_for_record(&record)
+                        .join(&record.skill_name)
+                        .join(source_path);
+                    self.compile_local_script(&script_path).await?
+                }
+                SkillType::Rhai => {
+                    info!(evolution_id = %evolution_id, "🔨 [compile] Hybrid skill — falling back to Rhai compilation");
+                    let final_script =
+                        self.resolve_final_script(&record.skill_name, &patch.diff)?;
+                    self.compile_rhai_check(evolution_id, &record.skill_name, &final_script)
+                        .await?
+                }
+                SkillType::PromptOnly => {
+                    info!(evolution_id = %evolution_id, "🔨 [compile] Hybrid skill — checking prompt content length");
+                    let content = patch.diff.trim();
+                    if content.is_empty() {
+                        (false, Some("SKILL.md content is empty".to_string()))
+                    } else if content.len() < 50 {
+                        (
+                            false,
+                            Some(format!(
+                                "SKILL.md content too short ({} chars, need >= 50)",
+                                content.len()
+                            )),
+                        )
+                    } else {
+                        (true, None)
+                    }
+                }
+            },
             SkillLayout::RhaiOrchestration => {
                 let final_script = self.resolve_final_script(&record.skill_name, &patch.diff)?;
                 self.compile_rhai_check(evolution_id, &record.skill_name, &final_script)
@@ -994,9 +993,15 @@ impl SkillEvolution {
         match record.context.layout {
             SkillLayout::PromptTool => {
                 let Some(content) = skill_md_content.as_ref() else {
-                    issues.push("SKILL.md: file is missing (required for PromptTool skills)".to_string());
+                    issues.push(
+                        "SKILL.md: file is missing (required for PromptTool skills)".to_string(),
+                    );
                     let passed = issues.is_empty();
-                    let error = if passed { None } else { Some(issues.join("\n")) };
+                    let error = if passed {
+                        None
+                    } else {
+                        Some(issues.join("\n"))
+                    };
                     return Ok((passed, error));
                 };
 
@@ -1028,9 +1033,14 @@ impl SkillEvolution {
             }
             SkillLayout::Hybrid => {
                 let Some(content) = skill_md_content.as_ref() else {
-                    issues.push("SKILL.md: file is missing (required for Hybrid skills)".to_string());
+                    issues
+                        .push("SKILL.md: file is missing (required for Hybrid skills)".to_string());
                     let passed = issues.is_empty();
-                    let error = if passed { None } else { Some(issues.join("\n")) };
+                    let error = if passed {
+                        None
+                    } else {
+                        Some(issues.join("\n"))
+                    };
                     return Ok((passed, error));
                 };
 
@@ -1070,7 +1080,10 @@ impl SkillEvolution {
         if !primary_file.exists() {
             issues.push(format!(
                 "Primary skill file missing: {}",
-                primary_file.file_name().unwrap_or_default().to_string_lossy()
+                primary_file
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
             ));
         }
 
@@ -1121,7 +1134,11 @@ impl SkillEvolution {
     /// Reads BLOCKCELL.md (project-level rules), SKILL.md, manual/evolution.md,
     /// and adjacent skills of the same type.
     fn gather_evolution_context(&self, context: &EvolutionContext) -> EnrichedEvolutionContext {
-        let skills_dir = self.skill_root_dir_by_name(&context.skill_name, context.staged, context.staging_skills_dir.as_deref());
+        let skills_dir = self.skill_root_dir_by_name(
+            &context.skill_name,
+            context.staged,
+            context.staging_skills_dir.as_deref(),
+        );
         let skill_dir = skills_dir.join(&context.skill_name);
 
         // 1. Read BLOCKCELL.md — walk up from skills_dir to find it
@@ -1131,9 +1148,8 @@ impl SkillEvolution {
         let skill_md = std::fs::read_to_string(skill_dir.join("SKILL.md")).ok();
 
         // 3. Read manual/evolution.md (historical fix experience)
-        let evolution_history_md = std::fs::read_to_string(
-            skill_dir.join("manual").join("evolution.md")
-        ).ok();
+        let evolution_history_md =
+            std::fs::read_to_string(skill_dir.join("manual").join("evolution.md")).ok();
 
         // 4. Find adjacent skills of the same type (max 3, max 500 chars each)
         let adjacent_skills = self.find_adjacent_skills(&context.skill_name, &context.layout);
@@ -1178,7 +1194,11 @@ impl SkillEvolution {
     }
 
     /// Find adjacent skills of the same SkillLayout, return up to `max` snippet references.
-    fn find_adjacent_skills(&self, skill_name: &str, layout: &SkillLayout) -> Vec<AdjacentSkillRef> {
+    fn find_adjacent_skills(
+        &self,
+        skill_name: &str,
+        layout: &SkillLayout,
+    ) -> Vec<AdjacentSkillRef> {
         let mut refs = Vec::new();
         let skills_dir = &self.skills_dir;
 
@@ -1189,12 +1209,18 @@ impl SkillEvolution {
 
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if name == skill_name { continue; }
-            if !entry.path().is_dir() { continue; }
+            if name == skill_name {
+                continue;
+            }
+            if !entry.path().is_dir() {
+                continue;
+            }
 
             // Detect layout of this adjacent skill
             let adj_layout = self.detect_adjacent_skill_layout(&name);
-            if &adj_layout != layout { continue; }
+            if &adj_layout != layout {
+                continue;
+            }
 
             // Read SKILL.md snippet
             let skill_md_path = entry.path().join("SKILL.md");
@@ -1207,7 +1233,9 @@ impl SkillEvolution {
                 }
             }
 
-            if refs.len() >= 3 { break; }
+            if refs.len() >= 3 {
+                break;
+            }
         }
         refs
     }
@@ -1235,7 +1263,8 @@ impl SkillEvolution {
         let script_dir = skill_dir.join("scripts");
         let bin_dir = skill_dir.join("bin");
 
-        if Self::dir_contains_local_script(&script_dir) || Self::dir_contains_local_script(&bin_dir) {
+        if Self::dir_contains_local_script(&script_dir) || Self::dir_contains_local_script(&bin_dir)
+        {
             return true;
         }
 
@@ -1249,8 +1278,14 @@ impl SkillEvolution {
                 continue;
             }
 
-            let file_name = path.file_name().and_then(|value| value.to_str()).unwrap_or("");
-            if matches!(file_name, "SKILL.md" | "SKILL.rhai" | "meta.yaml" | "meta.json") {
+            let file_name = path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("");
+            if matches!(
+                file_name,
+                "SKILL.md" | "SKILL.rhai" | "meta.yaml" | "meta.json"
+            ) {
                 continue;
             }
 
@@ -1318,11 +1353,20 @@ impl SkillEvolution {
         if let Ok(entries) = std::fs::read_dir(&records_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().is_none_or(|e| e != "json") { continue; }
+                if path.extension().is_none_or(|e| e != "json") {
+                    continue;
+                }
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     if let Ok(record) = serde_json::from_str::<EvolutionRecord>(&content) {
-                        if record.skill_name != skill_name { continue; }
-                        if !matches!(record.status, EvolutionStatus::Completed | EvolutionStatus::RolledBack | EvolutionStatus::Failed) {
+                        if record.skill_name != skill_name {
+                            continue;
+                        }
+                        if !matches!(
+                            record.status,
+                            EvolutionStatus::Completed
+                                | EvolutionStatus::RolledBack
+                                | EvolutionStatus::Failed
+                        ) {
                             continue;
                         }
                         let summary = format!(
@@ -1330,10 +1374,14 @@ impl SkillEvolution {
                             record.status,
                             record.attempt,
                             record.context.trigger,
-                            record.patch.as_ref().map(|p| {
-                                let expl: String = p.explanation.chars().take(150).collect();
-                                format!(", explanation={}", expl)
-                            }).unwrap_or_default()
+                            record
+                                .patch
+                                .as_ref()
+                                .map(|p| {
+                                    let expl: String = p.explanation.chars().take(150).collect();
+                                    format!(", explanation={}", expl)
+                                })
+                                .unwrap_or_default()
                         );
                         summaries.push((record.created_at, summary));
                     }
@@ -1346,7 +1394,12 @@ impl SkillEvolution {
     }
 
     /// Helper: resolve skill root dir by name (handles staged vs normal)
-    fn skill_root_dir_by_name(&self, _skill_name: &str, staged: bool, staging_dir: Option<&str>) -> PathBuf {
+    fn skill_root_dir_by_name(
+        &self,
+        _skill_name: &str,
+        staged: bool,
+        staging_dir: Option<&str>,
+    ) -> PathBuf {
         if staged {
             if let Some(dir) = staging_dir {
                 let p = PathBuf::from(dir);
@@ -1383,7 +1436,8 @@ impl SkillEvolution {
         }
 
         if !enriched.adjacent_skills.is_empty() {
-            sections.push_str("## Adjacent Skills Reference (same layout, for style consistency)\n");
+            sections
+                .push_str("## Adjacent Skills Reference (same layout, for style consistency)\n");
             for adj in &enriched.adjacent_skills {
                 sections.push_str(&format!("### {}\n{}\n\n", adj.name, adj.snippet));
             }
@@ -1496,7 +1550,9 @@ impl SkillEvolution {
         prompt.push_str("## Output Format\n");
         prompt.push_str("Generate the COMPLETE SKILL.rhai file content.\n");
         prompt.push_str("When the skill returns structured results, prefer returning `display_text` for final user-facing text. If the result still needs runtime/LLM polishing, return `summary_data` as a lightweight structured summary and keep large raw content out of `summary_data`.\n");
-        prompt.push_str("If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n");
+        prompt.push_str(
+            "If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n",
+        );
         prompt.push_str(Self::trigger_rules_prompt());
         prompt.push_str("Output ONLY the Rhai code in a ```rhai code block.\n");
         prompt.push_str(
@@ -1598,7 +1654,9 @@ impl SkillEvolution {
 
     fn build_hybrid_generation_prompt(&self, context: &EvolutionContext) -> Result<String> {
         let mut prompt = String::new();
-        prompt.push_str("You are a hybrid skill evolution assistant for the blockcell agent framework.\n");
+        prompt.push_str(
+            "You are a hybrid skill evolution assistant for the blockcell agent framework.\n",
+        );
         prompt.push_str("This skill combines SKILL.md instructions with local script assets. Keep the manual, entrypoint, and fallback behavior aligned.\n\n");
         self.append_hybrid_contract_notes(&mut prompt, context);
 
@@ -1625,7 +1683,9 @@ impl SkillEvolution {
             SkillLayout::LocalScript => {
                 return self.build_local_script_fix_prompt(context, current_feedback, history)
             }
-            SkillLayout::Hybrid => return self.build_hybrid_fix_prompt(context, current_feedback, history),
+            SkillLayout::Hybrid => {
+                return self.build_hybrid_fix_prompt(context, current_feedback, history)
+            }
             SkillLayout::RhaiOrchestration => {}
         }
 
@@ -1732,7 +1792,9 @@ impl SkillEvolution {
             "Fix ALL the issues listed above and generate the COMPLETE corrected Rhai script.\n",
         );
         prompt.push_str("If the skill can directly produce final user-facing text, return `display_text`. Otherwise return `summary_data` as a lightweight structured summary for runtime/LLM polishing. Do NOT place complete webpages, long markdown, or large raw logs into `summary_data`.\n");
-        prompt.push_str("If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n");
+        prompt.push_str(
+            "If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n",
+        );
         prompt.push_str(Self::trigger_rules_prompt());
         prompt.push_str("Do NOT leave any of the reported issues unfixed.\n");
         prompt.push_str("Output ONLY the corrected Rhai code in a ```rhai code block.\n");
@@ -1817,13 +1879,19 @@ impl SkillEvolution {
         history: &[FeedbackEntry],
     ) -> Result<String> {
         let mut prompt = String::new();
-        prompt.push_str("You are a hybrid skill evolution assistant for the blockcell agent framework.\n");
+        prompt.push_str(
+            "You are a hybrid skill evolution assistant for the blockcell agent framework.\n",
+        );
         prompt.push_str("This skill combines SKILL.md instructions with local script assets. Keep the prompt contract and the executable entrypoint consistent.\n\n");
         self.append_hybrid_contract_notes(&mut prompt, context);
 
         let body = match context.skill_type {
-            SkillType::Python => self.build_python_fix_prompt(context, current_feedback, history)?,
-            SkillType::LocalScript => self.build_local_script_fix_prompt(context, current_feedback, history)?,
+            SkillType::Python => {
+                self.build_python_fix_prompt(context, current_feedback, history)?
+            }
+            SkillType::LocalScript => {
+                self.build_local_script_fix_prompt(context, current_feedback, history)?
+            }
             _ => self.build_prompt_only_fix_prompt(context, current_feedback, history)?,
         };
 
@@ -1835,12 +1903,15 @@ impl SkillEvolution {
         let is_manual = matches!(context.trigger, TriggerReason::ManualRequest { .. });
         let mut prompt = String::new();
 
-        prompt.push_str("You are a local script and CLI skill developer for the blockcell agent framework.\n");
+        prompt.push_str(
+            "You are a local script and CLI skill developer for the blockcell agent framework.\n",
+        );
         prompt.push_str("Your task is to write or improve a local script asset that will be executed through exec_local inside the active skill directory.\n\n");
 
         prompt.push_str("## Requirements\n");
         prompt.push_str("- Keep the script runnable from inside the skill directory\n");
-        prompt.push_str("- Read input from stdin, args, or environment variables when appropriate\n");
+        prompt
+            .push_str("- Read input from stdin, args, or environment variables when appropriate\n");
         prompt.push_str("- Write user-facing results to stdout\n");
         prompt.push_str("- Handle errors gracefully and exit non-zero on failure\n");
         prompt.push_str("- Avoid unsafe shell expansion and command injection\n");
@@ -1855,7 +1926,10 @@ impl SkillEvolution {
 
         if is_manual {
             if let TriggerReason::ManualRequest { ref description } = context.trigger {
-                prompt.push_str(&format!("## Task\nCreate or improve a Blockcell local script for: {}\n\n", description));
+                prompt.push_str(&format!(
+                    "## Task\nCreate or improve a Blockcell local script for: {}\n\n",
+                    description
+                ));
             }
         } else {
             prompt.push_str(&format!(
@@ -1871,7 +1945,11 @@ impl SkillEvolution {
             let fence = context
                 .source_path
                 .as_deref()
-                .and_then(|path| std::path::Path::new(path).extension().and_then(|ext| ext.to_str()))
+                .and_then(|path| {
+                    std::path::Path::new(path)
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                })
                 .map(|ext| match ext {
                     "sh" | "bash" | "zsh" => "bash",
                     "js" => "javascript",
@@ -1880,14 +1958,19 @@ impl SkillEvolution {
                     _ => "text",
                 })
                 .unwrap_or("text");
-            prompt.push_str(&format!("## Current Script Content\n```{}\n{}\n```\n\n", fence, snippet));
+            prompt.push_str(&format!(
+                "## Current Script Content\n```{}\n{}\n```\n\n",
+                fence, snippet
+            ));
         }
 
         prompt.push_str("## Output Format\n");
         prompt.push_str("Generate the COMPLETE local script content.\n");
         prompt.push_str("If the skill can directly produce final user-facing text, return `display_text`. Otherwise return `summary_data` as a lightweight structured summary for runtime/LLM polishing.\n");
         prompt.push_str("If this skill also needs a post-execution result polishing step, you may optionally add `## Summary {#summary}` to the paired SKILL.md. Treat that section as a soft hint for runtime summary handling, not a hard requirement.\n");
-        prompt.push_str("If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n");
+        prompt.push_str(
+            "If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n",
+        );
         prompt.push_str(Self::trigger_rules_prompt());
         prompt.push_str("The script must be runnable by exec_local and should not rely on unsafe external assumptions.\n");
 
@@ -1903,7 +1986,9 @@ impl SkillEvolution {
         let is_manual = matches!(context.trigger, TriggerReason::ManualRequest { .. });
         let mut prompt = String::new();
 
-        prompt.push_str("You are a local script and CLI skill developer for the blockcell agent framework.\n");
+        prompt.push_str(
+            "You are a local script and CLI skill developer for the blockcell agent framework.\n",
+        );
         prompt.push_str("Your task is to fix issues in a local script asset that will be executed through exec_local.\n\n");
 
         let enriched = self.gather_evolution_context(context);
@@ -1911,7 +1996,10 @@ impl SkillEvolution {
 
         if is_manual {
             if let TriggerReason::ManualRequest { ref description } = context.trigger {
-                prompt.push_str(&format!("## Original Task\nCreate or improve a Blockcell local script for: {}\n\n", description));
+                prompt.push_str(&format!(
+                    "## Original Task\nCreate or improve a Blockcell local script for: {}\n\n",
+                    description
+                ));
             }
         } else {
             prompt.push_str(&format!(
@@ -1922,7 +2010,10 @@ impl SkillEvolution {
 
         prompt.push_str("## Previous Content (has issues)\n");
         prompt.push_str(&format!("```\n{}\n```\n\n", current_feedback.previous_code));
-        prompt.push_str(&format!("## Issues Found ({})\n{}\n\n", current_feedback.stage, current_feedback.feedback));
+        prompt.push_str(&format!(
+            "## Issues Found ({})\n{}\n\n",
+            current_feedback.stage, current_feedback.feedback
+        ));
 
         let prev_attempts: Vec<&FeedbackEntry> = history
             .iter()
@@ -1931,7 +2022,10 @@ impl SkillEvolution {
         if !prev_attempts.is_empty() {
             prompt.push_str("## Previous Attempt History\n");
             for entry in prev_attempts {
-                prompt.push_str(&format!("### Attempt #{} ({} failure)\n{}\n\n", entry.attempt, entry.stage, entry.feedback));
+                prompt.push_str(&format!(
+                    "### Attempt #{} ({} failure)\n{}\n\n",
+                    entry.attempt, entry.stage, entry.feedback
+                ));
             }
         }
 
@@ -1939,7 +2033,9 @@ impl SkillEvolution {
         prompt.push_str("Fix ALL the issues listed above and generate the COMPLETE corrected local script content.\n");
         prompt.push_str("If the skill can directly produce final user-facing text, return `display_text`. Otherwise return `summary_data` as a lightweight structured summary for runtime/LLM polishing.\n");
         prompt.push_str("If this skill also needs a post-execution result polishing step, you may optionally add `## Summary {#summary}` to the paired SKILL.md. Treat that section as a soft hint for runtime summary handling, not a hard requirement.\n");
-        prompt.push_str("If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n");
+        prompt.push_str(
+            "If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n",
+        );
         prompt.push_str(Self::trigger_rules_prompt());
         prompt.push_str("Do NOT leave any of the reported issues unfixed.\n");
 
@@ -2090,7 +2186,9 @@ or\n\
         prompt.push_str("If the skill can directly produce final user-facing text, return `display_text`. Otherwise return `summary_data` as a lightweight structured summary for runtime/LLM polishing. Do NOT place complete webpages, long markdown, or large raw logs into `summary_data`.\n");
         prompt.push_str("If this skill also needs a post-execution result polishing step, you may optionally add `## Summary {#summary}` to the paired SKILL.md. Treat that section as a soft hint for runtime summary handling, not a hard requirement.\n");
         prompt.push_str("Output the Python code in a ```python code block.\n");
-        prompt.push_str("If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n");
+        prompt.push_str(
+            "If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n",
+        );
         prompt.push_str(Self::trigger_rules_prompt());
         prompt.push_str("The script must be syntactically valid Python.\n");
 
@@ -2162,16 +2260,24 @@ or\n\
         prompt.push_str("## Hybrid Contract\n");
         prompt.push_str("- `SKILL.md` defines the user-facing behavior, the tool flow, and when local execution is appropriate.\n");
         prompt.push_str("- `## Summary {#summary}` is optional and can be used to describe post-execution result polishing for script-backed skills; treat it as a hint, not a hard requirement.\n");
-        prompt.push_str("- The file at `source_path` is the executable entrypoint for local behavior.\n");
+        prompt.push_str(
+            "- The file at `source_path` is the executable entrypoint for local behavior.\n",
+        );
         prompt.push_str("- Keep the manual and the entrypoint aligned; if you move behavior, update both sides together.\n");
         if let Some(source_path) = context.source_path.as_ref() {
             prompt.push_str(&format!("- Current entrypoint: `{}`\n", source_path));
         }
-        prompt.push_str("- Use `exec_local` only for relative paths inside the active skill directory.\n\n");
+        prompt.push_str(
+            "- Use `exec_local` only for relative paths inside the active skill directory.\n\n",
+        );
     }
 
     fn detect_local_script_syntax_check(skill_path: &Path) -> Option<LocalScriptSyntaxCheck> {
-        match skill_path.extension().and_then(|value| value.to_str()).unwrap_or("") {
+        match skill_path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("")
+        {
             "sh" => Some(LocalScriptSyntaxCheck::Shell("sh")),
             "bash" => Some(LocalScriptSyntaxCheck::Shell("bash")),
             "zsh" => Some(LocalScriptSyntaxCheck::Shell("zsh")),
@@ -2231,14 +2337,20 @@ or\n\
         script_content: &str,
     ) -> Result<String> {
         let mut prompt = String::new();
-        prompt.push_str("You are a security auditor for hybrid skills in the blockcell agent framework.\n");
+        prompt.push_str(
+            "You are a security auditor for hybrid skills in the blockcell agent framework.\n",
+        );
         prompt.push_str("This skill combines SKILL.md with a local script asset, so audit both the contract and the executable entrypoint.\n\n");
 
         let body = match context.skill_type {
             SkillType::Python => self.build_python_audit_prompt(context, script_content)?,
-            SkillType::LocalScript => self.build_local_script_audit_prompt(context, script_content)?,
+            SkillType::LocalScript => {
+                self.build_local_script_audit_prompt(context, script_content)?
+            }
             SkillType::Rhai => self.build_audit_prompt(context, script_content)?,
-            SkillType::PromptOnly => self.build_prompt_only_audit_prompt(context, script_content)?,
+            SkillType::PromptOnly => {
+                self.build_prompt_only_audit_prompt(context, script_content)?
+            }
         };
 
         prompt.push_str(&body);
@@ -2306,7 +2418,9 @@ or\n\
         prompt.push_str("Fix ALL the issues listed above and generate the COMPLETE corrected SKILL.py content.\n");
         prompt.push_str("If the skill can directly produce final user-facing text, return `display_text`. Otherwise return `summary_data` as a lightweight structured summary for runtime/LLM polishing. Do NOT place complete webpages, long markdown, or large raw logs into `summary_data`.\n");
         prompt.push_str("Output the Python code in a ```python code block.\n");
-        prompt.push_str("If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n");
+        prompt.push_str(
+            "If you output `meta.yaml`, it must follow the minimal meta rules below.\n\n",
+        );
         prompt.push_str(Self::trigger_rules_prompt());
 
         Ok(prompt)
@@ -2328,14 +2442,20 @@ or\n\
                     } else if !stdout.trim().is_empty() {
                         stdout
                     } else {
-                        format!("Local script syntax check failed for {:?}", skill_path.file_name())
+                        format!(
+                            "Local script syntax check failed for {:?}",
+                            skill_path.file_name()
+                        )
                     };
                     return Ok((false, Some(message)));
                 }
                 Err(e) => {
                     return Ok((
                         true,
-                        Some(format!("Syntax checker unavailable or failed to run: {}", e)),
+                        Some(format!(
+                            "Syntax checker unavailable or failed to run: {}",
+                            e
+                        )),
                     ));
                 }
             }
@@ -2351,7 +2471,8 @@ or\n\
         Ok((
             true,
             Some(if skill_path.extension().is_none() {
-                "No extension or recognized shebang detected; skipped syntax-specific validation".to_string()
+                "No extension or recognized shebang detected; skipped syntax-specific validation"
+                    .to_string()
             } else {
                 "Skipped syntax-specific validation for unsupported script type".to_string()
             }),

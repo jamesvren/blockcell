@@ -3,8 +3,8 @@
 //! Post-Compact 阶段恢复文件和技能状态。
 
 use crate::token::estimate_tokens;
-use std::path::{Path, PathBuf};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 /// 文件恢复状态
 #[derive(Debug, Clone)]
@@ -73,11 +73,7 @@ impl CompactRecoveryContext {
     }
 
     /// 检查预算是否超限
-    pub fn is_within_budget(
-        &self,
-        max_file_tokens: usize,
-        max_skill_tokens: usize,
-    ) -> bool {
+    pub fn is_within_budget(&self, max_file_tokens: usize, max_skill_tokens: usize) -> bool {
         let file_tokens: usize = self.files.iter().map(|f| f.estimated_tokens).sum();
         let skill_tokens: usize = self.skills.iter().map(|s| s.estimated_tokens).sum();
 
@@ -87,9 +83,8 @@ impl CompactRecoveryContext {
     /// 按优先级截断文件列表
     pub fn truncate_files_to_budget(&mut self, max_tokens: usize) {
         // 按重要性排序：修改过的文件优先
-        self.files.sort_by(|a, b| {
-            b.was_modified.cmp(&a.was_modified)
-        });
+        self.files
+            .sort_by(|a, b| b.was_modified.cmp(&a.was_modified));
 
         let mut used_tokens = 0;
         self.files.retain(|f| {
@@ -102,8 +97,16 @@ impl CompactRecoveryContext {
         });
 
         self.total_recovery_tokens = used_tokens
-            + self.skills.iter().map(|s| s.estimated_tokens).sum::<usize>()
-            + self.session_memory.as_ref().map(|m| estimate_tokens(m)).unwrap_or(0);
+            + self
+                .skills
+                .iter()
+                .map(|s| s.estimated_tokens)
+                .sum::<usize>()
+            + self
+                .session_memory
+                .as_ref()
+                .map(|m| estimate_tokens(m))
+                .unwrap_or(0);
     }
 }
 
@@ -124,7 +127,10 @@ pub async fn create_recovery_context(
     loaded_skills: HashMap<String, String>,
     session_memory_content: Option<String>,
 ) -> CompactRecoveryContext {
-    use super::{MAX_FILE_RECOVERY_TOKENS, MAX_SKILL_RECOVERY_TOKENS, MAX_FILES_TO_RECOVER, MAX_SINGLE_FILE_TOKENS};
+    use super::{
+        MAX_FILES_TO_RECOVER, MAX_FILE_RECOVERY_TOKENS, MAX_SINGLE_FILE_TOKENS,
+        MAX_SKILL_RECOVERY_TOKENS,
+    };
 
     let mut ctx = CompactRecoveryContext::empty();
 
@@ -182,7 +188,10 @@ fn generate_file_summary(content: &str, max_tokens: usize) -> String {
     let max_chars = max_tokens * 4;
     let preview = content.chars().take(max_chars).collect::<String>();
     if content.len() > max_chars {
-        format!("{}\n[... content truncated at {} tokens ...]", preview, max_tokens)
+        format!(
+            "{}\n[... content truncated at {} tokens ...]",
+            preview, max_tokens
+        )
     } else {
         preview
     }

@@ -12,8 +12,8 @@ use blockcell_core::{Error, Result};
 use serde_json::{json, Value};
 
 use crate::napcat::common::{
-    build_description, build_napcat_permissions, check_channel,
-    resolve_account_id, call_api, RiskLevel, ApiRequest,
+    build_description, build_napcat_permissions, call_api, check_channel, resolve_account_id,
+    ApiRequest, RiskLevel,
 };
 use crate::{Tool, ToolContext, ToolSchema};
 
@@ -52,7 +52,9 @@ impl Tool for NapcatDeleteMsgTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("message_id").and_then(|v| v.as_i64()).is_none() {
-            return Err(Error::Validation("Missing required parameter: message_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: message_id".into(),
+            ));
         }
         Ok(())
     }
@@ -68,7 +70,8 @@ impl Tool for NapcatDeleteMsgTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::delete_msg(message_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -117,7 +120,9 @@ impl Tool for NapcatGetMsgTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("message_id").and_then(|v| v.as_i64()).is_none() {
-            return Err(Error::Validation("Missing required parameter: message_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: message_id".into(),
+            ));
         }
         Ok(())
     }
@@ -133,7 +138,8 @@ impl Tool for NapcatGetMsgTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_msg(message_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -192,7 +198,9 @@ impl Tool for NapcatSetFriendAddRequestTool {
             return Err(Error::Validation("Missing required parameter: flag".into()));
         }
         if params.get("approve").and_then(|v| v.as_bool()).is_none() {
-            return Err(Error::Validation("Missing required parameter: approve".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: approve".into(),
+            ));
         }
         Ok(())
     }
@@ -210,7 +218,8 @@ impl Tool for NapcatSetFriendAddRequestTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_friend_add_request(flag, approve, remark, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -275,10 +284,14 @@ impl Tool for NapcatSetGroupAddRequestTool {
             return Err(Error::Validation("Missing required parameter: flag".into()));
         }
         if params.get("sub_type").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: sub_type".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: sub_type".into(),
+            ));
         }
         if params.get("approve").and_then(|v| v.as_bool()).is_none() {
-            return Err(Error::Validation("Missing required parameter: approve".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: approve".into(),
+            ));
         }
         Ok(())
     }
@@ -297,7 +310,8 @@ impl Tool for NapcatSetGroupAddRequestTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_group_add_request(flag, sub_type, approve, reason, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -347,7 +361,9 @@ impl Tool for NapcatGetCookiesTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("domain").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: domain".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: domain".into(),
+            ));
         }
         Ok(())
     }
@@ -363,7 +379,8 @@ impl Tool for NapcatGetCookiesTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_cookies(domain, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -419,7 +436,8 @@ impl Tool for NapcatGetCsrfTokenTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_csrf_token(None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(

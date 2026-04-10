@@ -15,9 +15,8 @@ use blockcell_core::{Error, Result};
 use serde_json::{json, Value};
 
 use crate::napcat::common::{
-    build_description, build_napcat_permissions, check_channel,
-    resolve_account_id, call_api, download_media_if_needed,
-    RiskLevel, ApiRequest,
+    build_description, build_napcat_permissions, call_api, check_channel, download_media_if_needed,
+    resolve_account_id, ApiRequest, RiskLevel,
 };
 use crate::{Tool, ToolContext, ToolSchema};
 
@@ -56,7 +55,9 @@ impl Tool for NapcatGetForwardMsgTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("message_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: message_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: message_id".into(),
+            ));
         }
         Ok(())
     }
@@ -72,7 +73,8 @@ impl Tool for NapcatGetForwardMsgTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_forward_msg(message_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -134,10 +136,14 @@ impl Tool for NapcatSetMsgEmojiLikeTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("message_id").and_then(|v| v.as_i64()).is_none() {
-            return Err(Error::Validation("Missing required parameter: message_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: message_id".into(),
+            ));
         }
         if params.get("emoji_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: emoji_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: emoji_id".into(),
+            ));
         }
         Ok(())
     }
@@ -155,7 +161,8 @@ impl Tool for NapcatSetMsgEmojiLikeTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_msg_emoji_like(message_id, emoji_id, set, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -164,7 +171,11 @@ impl Tool for NapcatSetMsgEmojiLikeTool {
             )));
         }
 
-        let action = if set.unwrap_or(true) { "Added" } else { "Removed" };
+        let action = if set.unwrap_or(true) {
+            "Added"
+        } else {
+            "Removed"
+        };
         tracing::info!(message_id = message_id, emoji_id = emoji_id, set = ?set, "{} emoji reaction", action);
 
         Ok(json!({
@@ -209,7 +220,9 @@ impl Tool for NapcatMarkMsgAsReadTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("message_id").and_then(|v| v.as_i64()).is_none() {
-            return Err(Error::Validation("Missing required parameter: message_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: message_id".into(),
+            ));
         }
         Ok(())
     }
@@ -225,7 +238,8 @@ impl Tool for NapcatMarkMsgAsReadTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::mark_msg_as_read(message_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -278,7 +292,9 @@ impl Tool for NapcatSetEssenceMsgTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("message_id").and_then(|v| v.as_i64()).is_none() {
-            return Err(Error::Validation("Missing required parameter: message_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: message_id".into(),
+            ));
         }
         Ok(())
     }
@@ -294,7 +310,8 @@ impl Tool for NapcatSetEssenceMsgTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_essence_msg(message_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -343,7 +360,9 @@ impl Tool for NapcatDeleteEssenceMsgTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("message_id").and_then(|v| v.as_i64()).is_none() {
-            return Err(Error::Validation("Missing required parameter: message_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: message_id".into(),
+            ));
         }
         Ok(())
     }
@@ -359,7 +378,8 @@ impl Tool for NapcatDeleteEssenceMsgTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::delete_essence_msg(message_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -408,7 +428,9 @@ impl Tool for NapcatGetEssenceMsgListTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         Ok(())
     }
@@ -424,7 +446,8 @@ impl Tool for NapcatGetEssenceMsgListTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_essence_msg_list(group_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -436,7 +459,11 @@ impl Tool for NapcatGetEssenceMsgListTool {
         let list: Vec<Value> = serde_json::from_value(response.data)
             .map_err(|e| Error::Tool(format!("Failed to parse essence list: {}", e)))?;
 
-        tracing::info!(group_id = group_id, count = list.len(), "Retrieved essence message list");
+        tracing::info!(
+            group_id = group_id,
+            count = list.len(),
+            "Retrieved essence message list"
+        );
 
         Ok(json!({
             "success": true,
@@ -482,7 +509,9 @@ impl Tool for NapcatGetGroupAtAllRemainTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         Ok(())
     }
@@ -498,7 +527,8 @@ impl Tool for NapcatGetGroupAtAllRemainTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_group_at_all_remain(group_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -572,11 +602,14 @@ impl Tool for NapcatGetImageTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         if file.is_none() && file_id.is_none() {
-            return Err(Error::Validation("Either 'file' or 'file_id' parameter is required".into()));
+            return Err(Error::Validation(
+                "Either 'file' or 'file_id' parameter is required".into(),
+            ));
         }
 
         let request = ApiRequest::get_image(file, file_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -597,7 +630,9 @@ impl Tool for NapcatGetImageTool {
                 None,
                 &ctx.config.agents.defaults.workspace,
                 None,
-            ).await {
+            )
+            .await
+            {
                 Ok(Some((path, _already_downloaded))) => Some(path),
                 Ok(None) => None,
                 Err(e) => {
@@ -668,7 +703,9 @@ impl Tool for NapcatGetRecordTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("out_format").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: out_format".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: out_format".into(),
+            ));
         }
         Ok(())
     }
@@ -686,11 +723,14 @@ impl Tool for NapcatGetRecordTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         if file.is_none() && file_id.is_none() {
-            return Err(Error::Validation("Either 'file' or 'file_id' parameter is required".into()));
+            return Err(Error::Validation(
+                "Either 'file' or 'file_id' parameter is required".into(),
+            ));
         }
 
         let request = ApiRequest::get_record(file, file_id, out_format, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -711,7 +751,9 @@ impl Tool for NapcatGetRecordTool {
                 None,
                 &ctx.config.agents.defaults.workspace,
                 None,
-            ).await {
+            )
+            .await
+            {
                 Ok(Some((path, _already_downloaded))) => Some(path),
                 Ok(None) => None,
                 Err(e) => {
@@ -791,7 +833,8 @@ impl Tool for NapcatGetVideoTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_video(file, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -812,7 +855,9 @@ impl Tool for NapcatGetVideoTool {
                 None,
                 &ctx.config.agents.defaults.workspace,
                 None,
-            ).await {
+            )
+            .await
+            {
                 Ok(Some((path, _already_downloaded))) => Some(path),
                 Ok(None) => None,
                 Err(e) => {
@@ -913,9 +958,12 @@ impl Tool for NapcatDownloadFileTool {
             filename,
             &ctx.config.agents.defaults.workspace,
             chat_id,
-        ).await?
-            .map(|(path, _)| path)
-            .ok_or_else(|| Error::Tool("File not downloaded and auto_download_media is disabled".to_string()))?;
+        )
+        .await?
+        .map(|(path, _)| path)
+        .ok_or_else(|| {
+            Error::Tool("File not downloaded and auto_download_media is disabled".to_string())
+        })?;
 
         // Extract filename from path for response
         let filename = std::path::Path::new(&local_path)

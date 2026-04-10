@@ -39,7 +39,8 @@ impl SlashCommand for SessionMetricsCommand {
             0 => {
                 // 无参数：显示所有层
                 let summary = blockcell_agent::session_metrics::get_metrics_summary();
-                let content = blockcell_agent::session_metrics::format_metrics_table(&summary, None);
+                let content =
+                    blockcell_agent::session_metrics::format_metrics_table(&summary, None);
                 CommandResult::Handled(CommandResponse::markdown(content))
             }
             1 => {
@@ -77,19 +78,20 @@ impl SlashCommand for SessionMetricsCommand {
                 match parts[1].parse::<u8>() {
                     Ok(n) if (1..=7).contains(&n) => {
                         let summary = blockcell_agent::session_metrics::get_metrics_summary();
-                        let content = blockcell_agent::session_metrics::format_metrics_table(&summary, Some(n));
+                        let content = blockcell_agent::session_metrics::format_metrics_table(
+                            &summary,
+                            Some(n),
+                        );
                         CommandResult::Handled(CommandResponse::markdown(content))
                     }
-                    Ok(n) => {
-                        CommandResult::Handled(CommandResponse::markdown(
-                            format!("❌ 层号超出范围: `{}`，必须是 1-7", n)
-                        ))
-                    }
-                    Err(_) => {
-                        CommandResult::Handled(CommandResponse::markdown(
-                            format!("❌ 无效层号: `{}`，必须是 1-7 之间的数字", parts[1])
-                        ))
-                    }
+                    Ok(n) => CommandResult::Handled(CommandResponse::markdown(format!(
+                        "❌ 层号超出范围: `{}`，必须是 1-7",
+                        n
+                    ))),
+                    Err(_) => CommandResult::Handled(CommandResponse::markdown(format!(
+                        "❌ 无效层号: `{}`，必须是 1-7 之间的数字",
+                        parts[1]
+                    ))),
                 }
             }
             _ => {
@@ -113,7 +115,9 @@ mod tests {
         let result = cmd.execute("", &ctx).await;
 
         if let CommandResult::Handled(response) = result {
-            assert!(response.content.contains("BlockCell Memory Metrics Summary"));
+            assert!(response
+                .content
+                .contains("BlockCell Memory Metrics Summary"));
         } else {
             panic!("Expected Handled result");
         }

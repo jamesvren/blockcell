@@ -6,22 +6,82 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 
 const SUPPORTED_OWNER_CHANNELS: [&str; 11] = [
-    "telegram", "whatsapp", "feishu", "slack", "discord", "dingtalk", "wecom", "lark", "qq", "napcat",
-    "weixin",
+    "telegram", "whatsapp", "feishu", "slack", "discord", "dingtalk", "wecom", "lark", "qq",
+    "napcat", "weixin",
 ];
 
 fn known_account_ids(config: &Config, channel: &str) -> Vec<String> {
     let mut ids = match channel {
-        "telegram" => config.channels.telegram.accounts.keys().cloned().collect::<Vec<_>>(),
-        "whatsapp" => config.channels.whatsapp.accounts.keys().cloned().collect::<Vec<_>>(),
-        "feishu" => config.channels.feishu.accounts.keys().cloned().collect::<Vec<_>>(),
-        "slack" => config.channels.slack.accounts.keys().cloned().collect::<Vec<_>>(),
-        "discord" => config.channels.discord.accounts.keys().cloned().collect::<Vec<_>>(),
-        "dingtalk" => config.channels.dingtalk.accounts.keys().cloned().collect::<Vec<_>>(),
-        "wecom" => config.channels.wecom.accounts.keys().cloned().collect::<Vec<_>>(),
-        "lark" => config.channels.lark.accounts.keys().cloned().collect::<Vec<_>>(),
-        "qq" => config.channels.qq.accounts.keys().cloned().collect::<Vec<_>>(),
-        "napcat" => config.channels.napcat.accounts.keys().cloned().collect::<Vec<_>>(),
+        "telegram" => config
+            .channels
+            .telegram
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        "whatsapp" => config
+            .channels
+            .whatsapp
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        "feishu" => config
+            .channels
+            .feishu
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        "slack" => config
+            .channels
+            .slack
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        "discord" => config
+            .channels
+            .discord
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        "dingtalk" => config
+            .channels
+            .dingtalk
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        "wecom" => config
+            .channels
+            .wecom
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        "lark" => config
+            .channels
+            .lark
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        "qq" => config
+            .channels
+            .qq
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        "napcat" => config
+            .channels
+            .napcat
+            .accounts
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
         _ => Vec::new(),
     };
     ids.sort();
@@ -122,7 +182,10 @@ async fn login_weixin() -> anyhow::Result<()> {
                     config.channels.weixin.token = bot_token;
                     config.save(&paths.config_file())?;
 
-                    println!("\n✓ Weixin 登录成功，token 已保存到：{}", paths.config_file().display());
+                    println!(
+                        "\n✓ Weixin 登录成功，token 已保存到：{}",
+                        paths.config_file().display()
+                    );
                     println!("  {}", paths.config_file().display());
                     if let Some(bot_id) = status.ilink_bot_id {
                         println!("  bot_id: {}", bot_id);
@@ -151,16 +214,16 @@ async fn login_weixin() -> anyhow::Result<()> {
             anyhow::bail!("Weixin 二维码已过期次数过多，请稍后重试");
         }
 
-        println!("正在重新获取二维码（{}/{}）...\n", refresh_count, MAX_REFRESHES);
+        println!(
+            "正在重新获取二维码（{}/{}）...\n",
+            refresh_count, MAX_REFRESHES
+        );
     }
 }
 
 fn render_weixin_qr(content: &str) -> anyhow::Result<()> {
     let code = QrCode::new(content.as_bytes())?;
-    let rendered = code
-        .render::<unicode::Dense1x2>()
-        .quiet_zone(true)
-        .build();
+    let rendered = code.render::<unicode::Dense1x2>().quiet_zone(true).build();
     println!("{}", rendered);
     Ok(())
 }

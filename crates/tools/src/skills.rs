@@ -273,8 +273,10 @@ impl ListSkillsTool {
 
                     let meta = self.read_skill_meta(&path);
                     let assets = self.detect_skill_assets(&path);
-                    let has_skill_file =
-                        assets.has_rhai || assets.has_py || assets.has_md || !assets.script_assets.is_empty();
+                    let has_skill_file = assets.has_rhai
+                        || assets.has_py
+                        || assets.has_md
+                        || !assets.script_assets.is_empty();
 
                     if has_skill_file {
                         skills.push(json!({
@@ -486,8 +488,11 @@ mod tests {
             .expect("write SKILL.rhai");
         std::fs::write(skill_dir.join("SKILL.py"), "print('compat')\n").expect("write SKILL.py");
         std::fs::write(skill_dir.join("SKILL.md"), "# Asset skill\n").expect("write SKILL.md");
-        std::fs::write(skill_dir.join("scripts/flow.rhai"), "set_output(\"nested\");\n")
-            .expect("write scripts/flow.rhai");
+        std::fs::write(
+            skill_dir.join("scripts/flow.rhai"),
+            "set_output(\"nested\");\n",
+        )
+        .expect("write scripts/flow.rhai");
         std::fs::write(skill_dir.join("scripts/report.py"), "print('nested')\n")
             .expect("write scripts/report.py");
         std::fs::write(skill_dir.join("bin/run"), "#!/bin/sh\necho ok\n").expect("write bin/run");
@@ -497,8 +502,7 @@ mod tests {
                 .expect("stat bin/run")
                 .permissions();
             perms.set_mode(0o755);
-            std::fs::set_permissions(skill_dir.join("bin/run"), perms)
-                .expect("chmod bin/run");
+            std::fs::set_permissions(skill_dir.join("bin/run"), perms).expect("chmod bin/run");
         }
 
         let result = tool
@@ -509,12 +513,11 @@ mod tests {
         let skill = result
             .get("available_skills")
             .and_then(|v| v.as_array())
-            .and_then(|skills| skills.iter().find(|skill| {
-                skill
-                    .get("name")
-                    .and_then(|value| value.as_str())
-                    == Some("asset_skill")
-            }))
+            .and_then(|skills| {
+                skills.iter().find(|skill| {
+                    skill.get("name").and_then(|value| value.as_str()) == Some("asset_skill")
+                })
+            })
             .expect("find asset_skill entry");
 
         assert_eq!(skill.get("has_rhai"), Some(&Value::Bool(true)));

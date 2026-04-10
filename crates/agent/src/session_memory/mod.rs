@@ -17,18 +17,21 @@
 //! | 生命周期 | 会话级，结束后丢弃 | 持久化，TTL 过期 |
 //! | 用途 | Post-Compact 恢复 | 跨会话 FTS5 检索 |
 
-mod template;
 mod extractor;
 pub mod recovery;
+mod template;
 
-pub use template::{Section, SectionPriority, DEFAULT_SESSION_MEMORY_TEMPLATE, validate_session_memory, ValidationResult};
 pub use extractor::{
-    SessionMemoryState, SessionMemoryConfig, should_extract_memory,
-    extract_session_memory, ExtractionError, count_tool_calls_since,
+    count_tool_calls_since, extract_session_memory, should_extract_memory, ExtractionError,
+    SessionMemoryConfig, SessionMemoryState,
 };
 pub use recovery::{
-    get_session_memory_path, get_session_memory_dir,
-    wait_for_session_memory_extraction, get_session_memory_content_for_compact,
+    get_session_memory_content_for_compact, get_session_memory_dir, get_session_memory_path,
+    wait_for_session_memory_extraction,
+};
+pub use template::{
+    validate_session_memory, Section, SectionPriority, ValidationResult,
+    DEFAULT_SESSION_MEMORY_TEMPLATE,
 };
 
 use std::path::PathBuf;

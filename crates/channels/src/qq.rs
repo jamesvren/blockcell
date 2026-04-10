@@ -144,7 +144,7 @@ struct AccessTokenResponse {
     #[serde(default)]
     app_access_token: String,
     #[serde(default)]
-    expires_in: String,  // QQ API returns this as string "7200"
+    expires_in: String, // QQ API returns this as string "7200"
 }
 
 impl AccessTokenResponse {
@@ -218,7 +218,9 @@ impl QQChannel {
             return true;
         }
 
-        allow_from.iter().any(|allowed| allowed == "*" || allowed == user_id)
+        allow_from
+            .iter()
+            .any(|allowed| allowed == "*" || allowed == user_id)
     }
 
     async fn get_access_token(&self) -> Result<String> {
@@ -257,7 +259,9 @@ impl QQChannel {
             .map_err(|e| Error::Channel(format!("Failed to parse QQ auth response: {}", e)))?;
 
         if !token_data.is_valid() {
-            return Err(Error::Channel("QQ auth response missing access_token".to_string()));
+            return Err(Error::Channel(
+                "QQ auth response missing access_token".to_string(),
+            ));
         }
 
         let now = std::time::SystemTime::now()
@@ -267,10 +271,13 @@ impl QQChannel {
 
         let expires_at = now + token_data.expires_in_seconds();
 
-        cache_guard.insert(app_id.clone(), CachedToken {
-            token: token_data.token().to_string(),
-            expires_at,
-        });
+        cache_guard.insert(
+            app_id.clone(),
+            CachedToken {
+                token: token_data.token().to_string(),
+                expires_at,
+            },
+        );
 
         Ok(token_data.token().to_string())
     }
@@ -323,9 +330,7 @@ impl QQChannel {
                         let filename = att.get("filename").and_then(|f| f.as_str()).unwrap_or("");
 
                         if content_type.starts_with("image/")
-                            || filename
-                                .to_lowercase()
-                                .ends_with(".png")
+                            || filename.to_lowercase().ends_with(".png")
                             || filename.to_lowercase().ends_with(".jpg")
                             || filename.to_lowercase().ends_with(".jpeg")
                             || filename.to_lowercase().ends_with(".gif")
@@ -484,10 +489,7 @@ impl QQChannel {
     }
 
     pub async fn handle_webhook_payload(&self, payload: &Value) -> Result<Value> {
-        let op = payload
-            .get("op")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+        let op = payload.get("op").and_then(|v| v.as_u64()).unwrap_or(0);
 
         // Webhook validation (op = 13)
         if op == 13 {
@@ -499,10 +501,7 @@ impl QQChannel {
             return Ok(json!({"retcode": 0}));
         }
 
-        let event_type = payload
-            .get("t")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let event_type = payload.get("t").and_then(|v| v.as_str()).unwrap_or("");
 
         let data = payload.get("d");
 
@@ -530,7 +529,7 @@ impl QQChannel {
     }
 
     async fn handle_webhook_validation(&self, payload: &Value) -> Result<Value> {
-        use ed25519_dalek::{SigningKey, Signer};
+        use ed25519_dalek::{Signer, SigningKey};
         use sha2::{Digest, Sha256};
 
         let validation = payload
@@ -569,7 +568,10 @@ impl QQChannel {
     }
 
     /// Run WebSocket Gateway mode
-    async fn run_websocket_gateway(self: Arc<Self>, mut shutdown: tokio::sync::broadcast::Receiver<()>) {
+    async fn run_websocket_gateway(
+        self: Arc<Self>,
+        mut shutdown: tokio::sync::broadcast::Receiver<()>,
+    ) {
         let ws_url = self.environment.ws_gateway().to_string();
 
         loop {
@@ -662,7 +664,8 @@ impl QQChannel {
                                 }
                             });
 
-                            if let Err(e) = write.send(WsMessage::Text(identify.to_string())).await {
+                            if let Err(e) = write.send(WsMessage::Text(identify.to_string())).await
+                            {
                                 error!("Failed to send identify: {}", e);
                                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                                 continue;
@@ -679,9 +682,10 @@ impl QQChannel {
 
                     // Heartbeat timer
                     let mut heartbeat_timer = tokio::time::interval(
-                        std::time::Duration::from_millis(heartbeat_interval as u64)
+                        std::time::Duration::from_millis(heartbeat_interval as u64),
                     );
-                    heartbeat_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                    heartbeat_timer
+                        .set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
                     // Main event loop
                     loop {
@@ -798,7 +802,10 @@ impl QQChannel {
 
         match mode.as_str() {
             "webhook" => {
-                info!("QQ channel started in webhook mode (environment: {:?})", self.environment);
+                info!(
+                    "QQ channel started in webhook mode (environment: {:?})",
+                    self.environment
+                );
                 // Webhook mode: just wait for shutdown
                 tokio::select! {
                     _ = shutdown.recv() => {
@@ -807,7 +814,10 @@ impl QQChannel {
                 }
             }
             _ => {
-                info!("QQ channel started in websocket mode (environment: {:?})", self.environment);
+                info!(
+                    "QQ channel started in websocket mode (environment: {:?})",
+                    self.environment
+                );
                 // WebSocket mode: actively connect to QQ Gateway
                 self.run_websocket_gateway(shutdown).await;
             }
@@ -909,7 +919,9 @@ async fn get_access_token_internal(
         .map_err(|e| Error::Channel(format!("Failed to parse QQ auth response: {}", e)))?;
 
     if !token_data.is_valid() {
-        return Err(Error::Channel("QQ auth response missing access_token".to_string()));
+        return Err(Error::Channel(
+            "QQ auth response missing access_token".to_string(),
+        ));
     }
 
     let now = std::time::SystemTime::now()
@@ -919,10 +931,13 @@ async fn get_access_token_internal(
 
     let expires_at = now + token_data.expires_in_seconds();
 
-    cache_guard.insert(app_id.to_string(), CachedToken {
-        token: token_data.token().to_string(),
-        expires_at,
-    });
+    cache_guard.insert(
+        app_id.to_string(),
+        CachedToken {
+            token: token_data.token().to_string(),
+            expires_at,
+        },
+    );
 
     Ok(token_data.token().to_string())
 }
@@ -966,9 +981,7 @@ pub async fn send_media_message(config: &Config, chat_id: &str, file_path: &str)
         .to_string();
 
     // Determine file type
-    let file_type = if filename
-        .to_lowercase()
-        .ends_with(".png")
+    let file_type = if filename.to_lowercase().ends_with(".png")
         || filename.to_lowercase().ends_with(".jpg")
         || filename.to_lowercase().ends_with(".jpeg")
         || filename.to_lowercase().ends_with(".gif")
@@ -1010,9 +1023,9 @@ pub async fn send_media_message(config: &Config, chat_id: &str, file_path: &str)
     }
 
     // Get file_info from response
-    let data = qq_response.data.ok_or_else(|| {
-        Error::Channel("QQ upload response missing data".to_string())
-    })?;
+    let data = qq_response
+        .data
+        .ok_or_else(|| Error::Channel("QQ upload response missing data".to_string()))?;
 
     let file_info = data
         .get("file_info")
@@ -1064,11 +1077,20 @@ mod tests {
 
     #[test]
     fn test_qq_environment_from_str() {
-        assert_eq!(QQEnvironment::from_str("production"), QQEnvironment::Production);
-        assert_eq!(QQEnvironment::from_str("PRODUCTION"), QQEnvironment::Production);
+        assert_eq!(
+            QQEnvironment::from_str("production"),
+            QQEnvironment::Production
+        );
+        assert_eq!(
+            QQEnvironment::from_str("PRODUCTION"),
+            QQEnvironment::Production
+        );
         assert_eq!(QQEnvironment::from_str("sandbox"), QQEnvironment::Sandbox);
         assert_eq!(QQEnvironment::from_str("SANDBOX"), QQEnvironment::Sandbox);
-        assert_eq!(QQEnvironment::from_str("unknown"), QQEnvironment::Production);
+        assert_eq!(
+            QQEnvironment::from_str("unknown"),
+            QQEnvironment::Production
+        );
     }
 
     #[test]

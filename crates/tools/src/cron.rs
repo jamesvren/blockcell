@@ -41,88 +41,99 @@ fn execute_cron_action_with_paths(
         "add" => {
             let mut store = load_store(paths)?;
             let now_ms = Utc::now().timestamp_millis();
-            let name = params.get("name").and_then(|v| v.as_str())
-                .ok_or_else(|| Error::Validation("Missing or invalid 'name' parameter".to_string()))?;
-            let message = params.get("message").and_then(|v| v.as_str())
-                .ok_or_else(|| Error::Validation("Missing or invalid 'message' parameter".to_string()))?;
+            let name = params.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
+                Error::Validation("Missing or invalid 'name' parameter".to_string())
+            })?;
+            let message = params
+                .get("message")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    Error::Validation("Missing or invalid 'message' parameter".to_string())
+                })?;
             let delete_after_run = params
                 .get("delete_after_run")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
 
-            let (kind, schedule) =
-                if let Some(delay) = params.get("delay_seconds").and_then(|v| v.as_i64()) {
-                    let at_ms = now_ms + delay * 1000;
-                    (
-                        "at",
-                        json!({
-                            "kind": "at",
-                            "atMs": at_ms
-                        }),
-                    )
-                } else if let Some(at_ms) = params.get("at_ms").and_then(|v| v.as_i64()) {
-                    // Validate at_ms: detect if it's likely a seconds timestamp (wrong unit)
-                    // A milliseconds timestamp for year 2020-2030 should be in range 1577836800000 - 1893456000000
-                    // If the value is less than 1e12 (1000000000000), it's likely in seconds, not milliseconds
-                    if at_ms > 0 && at_ms < 1_000_000_000_000 {
-                        return Err(Error::Validation(format!(
+            let (kind, schedule) = if let Some(delay) =
+                params.get("delay_seconds").and_then(|v| v.as_i64())
+            {
+                let at_ms = now_ms + delay * 1000;
+                (
+                    "at",
+                    json!({
+                        "kind": "at",
+                        "atMs": at_ms
+                    }),
+                )
+            } else if let Some(at_ms) = params.get("at_ms").and_then(|v| v.as_i64()) {
+                // Validate at_ms: detect if it's likely a seconds timestamp (wrong unit)
+                // A milliseconds timestamp for year 2020-2030 should be in range 1577836800000 - 1893456000000
+                // If the value is less than 1e12 (1000000000000), it's likely in seconds, not milliseconds
+                if at_ms > 0 && at_ms < 1_000_000_000_000 {
+                    return Err(Error::Validation(format!(
                             "at_ms value {} appears to be in seconds, not milliseconds. Multiply by 1000 or use delay_seconds instead.",
                             at_ms
                         )));
-                    }
-                    (
-                        "at",
-                        json!({
-                            "kind": "at",
-                            "atMs": at_ms
-                        }),
-                    )
-                } else if let Some(every) = params.get("every_seconds").and_then(|v| v.as_i64()) {
-                    if every <= 0 {
-                        return Err(Error::Validation(
-                            "every_seconds must be a positive integer".to_string()
-                        ));
-                    }
-                    let run_immediately = params.get("run_immediately").and_then(|v| v.as_bool()).unwrap_or(false);
-                    (
-                        "every",
-                        json!({
-                            "kind": "every",
-                            "everyMs": every * 1000,
-                            "runImmediately": run_immediately
-                        }),
-                    )
-                } else if let Some(expr) = params.get("cron_expr").and_then(|v| v.as_str()) {
-                    // Validate cron expression
-                    if expr.parse::<cron::Schedule>().is_err() {
-                        return Err(Error::Validation(format!(
+                }
+                (
+                    "at",
+                    json!({
+                        "kind": "at",
+                        "atMs": at_ms
+                    }),
+                )
+            } else if let Some(every) = params.get("every_seconds").and_then(|v| v.as_i64()) {
+                if every <= 0 {
+                    return Err(Error::Validation(
+                        "every_seconds must be a positive integer".to_string(),
+                    ));
+                }
+                let run_immediately = params
+                    .get("run_immediately")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                (
+                    "every",
+                    json!({
+                        "kind": "every",
+                        "everyMs": every * 1000,
+                        "runImmediately": run_immediately
+                    }),
+                )
+            } else if let Some(expr) = params.get("cron_expr").and_then(|v| v.as_str()) {
+                // Validate cron expression
+                if expr.parse::<cron::Schedule>().is_err() {
+                    return Err(Error::Validation(format!(
                             "Invalid cron expression '{}'. Use 6-field format: 'sec min hour day month weekday'",
                             expr
                         )));
-                    }
-                    // Use user-specified tz if provided, otherwise fall back to default_timezone
-                    let tz = params.get("tz").and_then(|v| v.as_str())
-                        .or(default_timezone);
-                    // Validate timezone if provided
-                    if let Some(tz_str) = tz {
-                        if tz_str.parse::<chrono_tz::Tz>().is_err() {
-                            return Err(Error::Validation(format!(
+                }
+                // Use user-specified tz if provided, otherwise fall back to default_timezone
+                let tz = params
+                    .get("tz")
+                    .and_then(|v| v.as_str())
+                    .or(default_timezone);
+                // Validate timezone if provided
+                if let Some(tz_str) = tz {
+                    if tz_str.parse::<chrono_tz::Tz>().is_err() {
+                        return Err(Error::Validation(format!(
                                 "Invalid timezone '{}'. Use IANA timezone like 'Asia/Shanghai', 'America/New_York'",
                                 tz_str
                             )));
-                        }
                     }
-                    let mut schedule_json = json!({
-                        "kind": "cron",
-                        "expr": expr
-                    });
-                    if let Some(tz) = tz {
-                        schedule_json["tz"] = json!(tz);
-                    }
-                    ("cron", schedule_json)
-                } else {
-                    return Err(Error::Validation("No schedule specified".to_string()));
-                };
+                }
+                let mut schedule_json = json!({
+                    "kind": "cron",
+                    "expr": expr
+                });
+                if let Some(tz) = tz {
+                    schedule_json["tz"] = json!(tz);
+                }
+                ("cron", schedule_json)
+            } else {
+                return Err(Error::Validation("No schedule specified".to_string()));
+            };
 
             let job_id = Uuid::new_v4().to_string();
 
@@ -232,8 +243,12 @@ fn execute_cron_action_with_paths(
         }
         "remove" => {
             let mut store = load_store(paths)?;
-            let job_id = params.get("job_id").and_then(|v| v.as_str())
-                .ok_or_else(|| Error::Validation("Missing or invalid 'job_id' parameter".to_string()))?;
+            let job_id = params
+                .get("job_id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    Error::Validation("Missing or invalid 'job_id' parameter".to_string())
+                })?;
 
             let before = store.jobs.len();
             store.jobs.retain(|j| {
@@ -451,7 +466,9 @@ impl Tool for CronTool {
     }
 
     async fn execute(&self, ctx: ToolContext, params: Value) -> Result<Value> {
-        let action = params.get("action").and_then(|v| v.as_str())
+        let action = params
+            .get("action")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| Error::Validation("Missing required parameter: action".to_string()))?
             .to_string();
         let origin_channel = ctx.channel.clone();
@@ -638,7 +655,10 @@ mod tests {
         );
         assert!(r.is_err(), "Should reject invalid timezone");
         let err = r.unwrap_err().to_string();
-        assert!(err.contains("Invalid timezone"), "Error message should mention invalid timezone");
+        assert!(
+            err.contains("Invalid timezone"),
+            "Error message should mention invalid timezone"
+        );
         let _ = std::fs::remove_dir_all(paths.base);
     }
 
@@ -656,9 +676,13 @@ mod tests {
             }),
             "telegram",
             "12345",
-            Some("Asia/Shanghai"),  // default_timezone
+            Some("Asia/Shanghai"), // default_timezone
         );
-        assert!(r.is_ok(), "Should accept user-specified timezone: {:?}", r.err());
+        assert!(
+            r.is_ok(),
+            "Should accept user-specified timezone: {:?}",
+            r.err()
+        );
 
         // Verify the job was saved with user-specified timezone, not default
         let store = load_store(&paths).expect("load cron store");
@@ -666,7 +690,11 @@ mod tests {
             .get("schedule")
             .and_then(|s| s.get("tz"))
             .and_then(|v| v.as_str());
-        assert_eq!(saved_tz, Some("America/New_York"), "Should use user-specified timezone");
+        assert_eq!(
+            saved_tz,
+            Some("America/New_York"),
+            "Should use user-specified timezone"
+        );
         let _ = std::fs::remove_dir_all(paths.base);
     }
 
@@ -687,7 +715,10 @@ mod tests {
         );
         assert!(r.is_err(), "Should reject invalid cron expression");
         let err = r.unwrap_err().to_string();
-        assert!(err.contains("Invalid cron expression"), "Error message should mention invalid cron expression");
+        assert!(
+            err.contains("Invalid cron expression"),
+            "Error message should mention invalid cron expression"
+        );
         let _ = std::fs::remove_dir_all(paths.base);
     }
 
@@ -708,7 +739,10 @@ mod tests {
         );
         assert!(r.is_err(), "Should reject negative every_seconds");
         let err = r.unwrap_err().to_string();
-        assert!(err.contains("every_seconds must be a positive integer"), "Error message should mention positive integer requirement");
+        assert!(
+            err.contains("every_seconds must be a positive integer"),
+            "Error message should mention positive integer requirement"
+        );
         let _ = std::fs::remove_dir_all(paths.base);
     }
 
@@ -748,7 +782,10 @@ mod tests {
         );
         assert!(r.is_ok(), "Should accept default_timezone: {:?}", r.err());
         let result = r.unwrap();
-        assert_eq!(result.get("status").and_then(|v| v.as_str()), Some("created"));
+        assert_eq!(
+            result.get("status").and_then(|v| v.as_str()),
+            Some("created")
+        );
 
         // Verify the job was saved with correct timezone from default_timezone
         let store = load_store(&paths).expect("load cron store");

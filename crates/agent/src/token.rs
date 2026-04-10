@@ -182,10 +182,7 @@ mod tests {
 
     #[test]
     fn test_estimate_messages_tokens_multiple() {
-        let messages = vec![
-            ChatMessage::user("hello"),
-            ChatMessage::assistant("world"),
-        ];
+        let messages = vec![ChatMessage::user("hello"), ChatMessage::assistant("world")];
         let tokens = estimate_messages_tokens(&messages);
         assert!(tokens > 0);
     }

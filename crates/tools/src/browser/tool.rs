@@ -1499,13 +1499,34 @@ mod tests {
 
     #[test]
     fn test_browser_engine_from_str() {
-        assert_eq!("chrome".parse::<BrowserEngine>().unwrap(), BrowserEngine::Chrome);
-        assert_eq!("Chrome".parse::<BrowserEngine>().unwrap(), BrowserEngine::Chrome);
-        assert_eq!("firefox".parse::<BrowserEngine>().unwrap(), BrowserEngine::Firefox);
-        assert_eq!("ff".parse::<BrowserEngine>().unwrap(), BrowserEngine::Firefox);
-        assert_eq!("edge".parse::<BrowserEngine>().unwrap(), BrowserEngine::Edge);
-        assert_eq!("msedge".parse::<BrowserEngine>().unwrap(), BrowserEngine::Edge);
-        assert_eq!("unknown".parse::<BrowserEngine>().unwrap(), BrowserEngine::Chrome); // default
+        assert_eq!(
+            "chrome".parse::<BrowserEngine>().unwrap(),
+            BrowserEngine::Chrome
+        );
+        assert_eq!(
+            "Chrome".parse::<BrowserEngine>().unwrap(),
+            BrowserEngine::Chrome
+        );
+        assert_eq!(
+            "firefox".parse::<BrowserEngine>().unwrap(),
+            BrowserEngine::Firefox
+        );
+        assert_eq!(
+            "ff".parse::<BrowserEngine>().unwrap(),
+            BrowserEngine::Firefox
+        );
+        assert_eq!(
+            "edge".parse::<BrowserEngine>().unwrap(),
+            BrowserEngine::Edge
+        );
+        assert_eq!(
+            "msedge".parse::<BrowserEngine>().unwrap(),
+            BrowserEngine::Edge
+        );
+        assert_eq!(
+            "unknown".parse::<BrowserEngine>().unwrap(),
+            BrowserEngine::Chrome
+        ); // default
     }
 
     #[test]

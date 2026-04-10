@@ -517,10 +517,22 @@ impl WeComChannel {
             match action {
                 LoopAction::Continue => continue,
                 LoopAction::Break(r) => break r,
-                LoopAction::MediaUpload { chat_id, file_path, media_type, title, result_tx } => {
+                LoopAction::MediaUpload {
+                    chat_id,
+                    file_path,
+                    media_type,
+                    title,
+                    result_tx,
+                } => {
                     let upload_result = longconn_upload_and_send_media(
-                        &mut write, &mut read, &chat_id, &file_path, &media_type, &title,
-                    ).await;
+                        &mut write,
+                        &mut read,
+                        &chat_id,
+                        &file_path,
+                        &media_type,
+                        &title,
+                    )
+                    .await;
                     let _ = result_tx.send(upload_result);
                 }
             }
@@ -1874,15 +1886,19 @@ async fn longconn_upload_and_send_media<S, R>(
 where
     S: futures::Sink<WsMessage> + Unpin,
     S::Error: std::fmt::Display,
-    R: futures::Stream<Item = std::result::Result<WsMessage, tokio_tungstenite::tungstenite::Error>>
-        + Unpin,
+    R: futures::Stream<
+            Item = std::result::Result<WsMessage, tokio_tungstenite::tungstenite::Error>,
+        > + Unpin,
 {
     use base64::Engine;
 
     let path = std::path::Path::new(file_path);
-    let file_bytes = tokio::fs::read(path)
-        .await
-        .map_err(|e| Error::Channel(format!("WeCom longconn upload: failed to read {}: {}", file_path, e)))?;
+    let file_bytes = tokio::fs::read(path).await.map_err(|e| {
+        Error::Channel(format!(
+            "WeCom longconn upload: failed to read {}: {}",
+            file_path, e
+        ))
+    })?;
 
     let file_name = path
         .file_name()
@@ -1941,7 +1957,11 @@ where
         let chunk_data = &file_bytes[start..end];
         let b64 = base64::engine::general_purpose::STANDARD.encode(chunk_data);
 
-        let chunk_req_id = format!("upload-chunk-{}-{}", i, chrono::Utc::now().timestamp_millis());
+        let chunk_req_id = format!(
+            "upload-chunk-{}-{}",
+            i,
+            chrono::Utc::now().timestamp_millis()
+        );
         let chunk_msg = serde_json::json!({
             "cmd": "aibot_upload_media_chunk",
             "headers": { "req_id": &chunk_req_id },
@@ -1958,11 +1978,16 @@ where
         if chunk_err != 0 {
             return Err(Error::Channel(format!(
                 "WeCom longconn chunk {} upload error {}: {}",
-                i, chunk_err,
+                i,
+                chunk_err,
                 chunk_resp["errmsg"].as_str().unwrap_or("unknown")
             )));
         }
-        debug!(chunk = i, total = total_chunks, "WeCom longconn: chunk uploaded");
+        debug!(
+            chunk = i,
+            total = total_chunks,
+            "WeCom longconn: chunk uploaded"
+        );
     }
 
     // Step 3: aibot_upload_media_finish
@@ -2058,8 +2083,9 @@ async fn longconn_wait_response<S, R>(
 where
     S: futures::Sink<WsMessage> + Unpin,
     S::Error: std::fmt::Display,
-    R: futures::Stream<Item = std::result::Result<WsMessage, tokio_tungstenite::tungstenite::Error>>
-        + Unpin,
+    R: futures::Stream<
+            Item = std::result::Result<WsMessage, tokio_tungstenite::tungstenite::Error>,
+        > + Unpin,
 {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
 
@@ -2114,7 +2140,8 @@ where
             }
             None => {
                 return Err(Error::Channel(
-                    "WeCom longconn: connection ended while waiting for upload response".to_string(),
+                    "WeCom longconn: connection ended while waiting for upload response"
+                        .to_string(),
                 ));
             }
             _ => {}
@@ -2264,15 +2291,18 @@ pub async fn send_media_message(
             };
             if let Err(e) = tx.try_send(msg) {
                 return Err(Error::Channel(format!(
-                    "WeCom longconn: failed to queue media upload: {}", e
+                    "WeCom longconn: failed to queue media upload: {}",
+                    e
                 )));
             }
             match result_rx.await {
                 Ok(Ok(_media_id)) => return Ok(()),
                 Ok(Err(e)) => return Err(e),
-                Err(_) => return Err(Error::Channel(
-                    "WeCom longconn: media upload channel dropped".to_string(),
-                )),
+                Err(_) => {
+                    return Err(Error::Channel(
+                        "WeCom longconn: media upload channel dropped".to_string(),
+                    ))
+                }
             }
         } else {
             warn!(bot_id = %bot_id, "WeCom long connection not active; media message dropped");

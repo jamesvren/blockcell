@@ -144,8 +144,12 @@ impl CompactSummary {
         prompt.push_str("Include the following sections:\n\n");
 
         for section in CompactSummarySection::all() {
-            prompt.push_str(&format!("{}. {} - {}\n",
-                section as u8, section.title(), section.description()));
+            prompt.push_str(&format!(
+                "{}. {} - {}\n",
+                section as u8,
+                section.title(),
+                section.description()
+            ));
         }
 
         prompt.push_str("\nKeep each section concise and focused on information essential for continuing the work.\n");
@@ -170,8 +174,10 @@ pub async fn generate_compact_summary(
     model: &str,
     messages: Vec<ChatMessage>,
 ) -> Result<CompactSummaryResult, CompactError> {
-    use crate::forked::{run_forked_agent, ForkedAgentParams, CacheSafeParams, create_compact_can_use_tool};
     use super::NO_TOOLS_PREAMBLE;
+    use crate::forked::{
+        create_compact_can_use_tool, run_forked_agent, CacheSafeParams, ForkedAgentParams,
+    };
 
     // 构建 Compact Prompt
     let compact_prompt = CompactSummary::generate_compact_prompt();
@@ -230,10 +236,7 @@ pub async fn generate_compact_summary(
 /// 从消息中解析摘要
 fn parse_summary_from_messages(messages: &[ChatMessage]) -> Result<CompactSummary, CompactError> {
     // 找到最后一条 assistant 消息
-    let last_assistant = messages
-        .iter()
-        .rev()
-        .find(|m| m.role == "assistant");
+    let last_assistant = messages.iter().rev().find(|m| m.role == "assistant");
 
     match last_assistant {
         Some(msg) => {
@@ -322,8 +325,14 @@ mod tests {
     #[test]
     fn test_compact_summary_to_markdown() {
         let mut summary = CompactSummary::empty();
-        summary.add_section(CompactSummarySection::UserRequest, "Build a REST API".to_string());
-        summary.add_section(CompactSummarySection::CurrentState, "Working on auth".to_string());
+        summary.add_section(
+            CompactSummarySection::UserRequest,
+            "Build a REST API".to_string(),
+        );
+        summary.add_section(
+            CompactSummarySection::CurrentState,
+            "Working on auth".to_string(),
+        );
 
         let md = summary.to_markdown();
         assert!(md.contains("# Conversation Summary"));

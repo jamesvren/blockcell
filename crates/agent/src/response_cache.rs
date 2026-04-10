@@ -104,10 +104,7 @@ impl ResponseCache {
 
         let mut inner = self.get_lock();
         let max_per_session = inner.max_per_session;
-        let session_cache = inner
-            .data
-            .entry(session_key.to_string())
-            .or_default();
+        let session_cache = inner.data.entry(session_key.to_string()).or_default();
 
         // Evict oldest entry if at capacity
         if session_cache.len() >= max_per_session {
@@ -469,7 +466,9 @@ impl ContentReplacementState {
 
         // 从 records 恢复 replacements
         for record in records {
-            state.replacements.insert(record.tool_use_id.clone(), record.replacement.clone());
+            state
+                .replacements
+                .insert(record.tool_use_id.clone(), record.replacement.clone());
             // 确保顺序跟踪
             if !state.insertion_order.contains(&record.tool_use_id) {
                 state.insertion_order.push(record.tool_use_id.clone());
@@ -536,7 +535,8 @@ pub const MEMORY_FALLBACK_TAG: &str = "<memory-fallback>";
 pub const MEMORY_FALLBACK_CLOSING_TAG: &str = "</memory-fallback>";
 
 /// 磁盘持久化失败时的警告消息
-pub const DISK_PERSIST_FAILED_WARNING: &str = "Warning: Disk persistence failed. Content preserved in memory preview.";
+pub const DISK_PERSIST_FAILED_WARNING: &str =
+    "Warning: Disk persistence failed. Content preserved in memory preview.";
 
 /// 清理 tool_use_id 以防止路径注入
 ///
@@ -574,11 +574,28 @@ fn sanitize_tool_use_id(tool_use_id: &str) -> String {
     let upper = result.to_uppercase();
     let is_reserved = matches!(
         upper.as_str(),
-        "CON" | "PRN" | "AUX" | "NUL"
-        | "COM1" | "COM2" | "COM3" | "COM4" | "COM5"
-        | "COM6" | "COM7" | "COM8" | "COM9"
-        | "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5"
-        | "LPT6" | "LPT7" | "LPT8" | "LPT9"
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
     );
 
     if is_reserved {
@@ -724,7 +741,9 @@ pub async fn persist_tool_result(
     let content_str = if is_json {
         // 格式化 JSON
         match serde_json::from_str::<serde_json::Value>(content) {
-            Ok(value) => serde_json::to_string_pretty(&value).unwrap_or_else(|_| content.to_string()),
+            Ok(value) => {
+                serde_json::to_string_pretty(&value).unwrap_or_else(|_| content.to_string())
+            }
             Err(_) => content.to_string(),
         }
     } else {
@@ -792,11 +811,16 @@ mod layer1_tests {
     fn test_content_replacement_state() {
         let mut state = ContentReplacementState::default();
         state.seen_ids.insert("tool-1".to_string());
-        state.replacements.insert("tool-1".to_string(), "replacement".to_string());
+        state
+            .replacements
+            .insert("tool-1".to_string(), "replacement".to_string());
 
         let cloned = state.clone_state();
         assert!(cloned.seen_ids.contains("tool-1"));
-        assert_eq!(cloned.replacements.get("tool-1"), Some(&"replacement".to_string()));
+        assert_eq!(
+            cloned.replacements.get("tool-1"),
+            Some(&"replacement".to_string())
+        );
     }
 
     #[test]
@@ -834,11 +858,12 @@ mod layer1_tests {
             let result = process_tool_result(
                 &content,
                 "tool-1",
-                "test-session",  // session_key
+                "test-session", // session_key
                 &state,
                 DEFAULT_MAX_RESULT_SIZE_CHARS,
                 workspace,
-            ).await;
+            )
+            .await;
 
             // 小内容不需要持久化
             assert!(result.is_none());
@@ -882,14 +907,15 @@ mod layer1_tests {
     #[test]
     fn test_content_replacement_state_reconstruct() {
         let tool_ids = vec!["tool-1".to_string(), "tool-2".to_string()];
-        let records = vec![
-            ContentReplacementRecord {
-                kind: "persist".to_string(),
-                tool_use_id: "tool-1".to_string(),
-                replacement: "replacement-1".to_string(),
-            },
-        ];
-        let inherited = Some(&HashMap::from([("tool-3".to_string(), "inherited".to_string())]));
+        let records = vec![ContentReplacementRecord {
+            kind: "persist".to_string(),
+            tool_use_id: "tool-1".to_string(),
+            replacement: "replacement-1".to_string(),
+        }];
+        let inherited = Some(&HashMap::from([(
+            "tool-3".to_string(),
+            "inherited".to_string(),
+        )]));
 
         let state = ContentReplacementState::reconstruct(&tool_ids, &records, inherited);
 
@@ -1200,7 +1226,13 @@ pub async fn apply_budget_async(
     }
 
     // 预算超限，记录 Layer 1 事件
-    memory_event!(layer1, budget_exceeded, total_size, budget, candidates.len());
+    memory_event!(
+        layer1,
+        budget_exceeded,
+        total_size,
+        budget,
+        candidates.len()
+    );
 
     // 需要持久化哪些结果？
     let mut sorted_candidates: Vec<_> = candidates.iter().collect();
@@ -1227,7 +1259,8 @@ pub async fn apply_budget_async(
     }
 
     // 持久化并构建替换映射
-    let mut replacements: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut replacements: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
 
     for candidate in candidates {
         if !to_persist.contains(&candidate.tool_use_id) {
@@ -1244,7 +1277,9 @@ pub async fn apply_budget_async(
         {
             Ok(result) => {
                 // 记录 Layer 1 持久化事件
-                memory_event!(layer1, persisted,
+                memory_event!(
+                    layer1,
+                    persisted,
                     &candidate.tool_use_id,
                     result.original_size,
                     result.preview.len()
@@ -1265,10 +1300,8 @@ pub async fn apply_budget_async(
                     "Failed to persist tool result to disk, using memory fallback"
                 );
 
-                let fallback_message = build_memory_fallback_message(
-                    &candidate.content,
-                    &candidate.tool_use_id,
-                );
+                let fallback_message =
+                    build_memory_fallback_message(&candidate.content, &candidate.tool_use_id);
                 replacements.insert(candidate.tool_use_id.clone(), fallback_message);
             }
         }

@@ -2,11 +2,13 @@
 //!
 //! 定义触发条件和提取逻辑。
 
-use crate::token::estimate_tokens;
-use super::MAX_SECTION_LENGTH;
 use super::template::validate_session_memory;
-use crate::forked::{run_forked_agent, ForkedAgentParams, CacheSafeParams, create_memory_file_can_use_tool};
+use super::MAX_SECTION_LENGTH;
+use crate::forked::{
+    create_memory_file_can_use_tool, run_forked_agent, CacheSafeParams, ForkedAgentParams,
+};
 use crate::memory_event;
+use crate::token::estimate_tokens;
 use blockcell_core::types::ChatMessage;
 use blockcell_providers::ProviderPool;
 use std::path::Path;
@@ -77,16 +79,11 @@ pub enum ExtractionError {
 /// 1. Token 阈值必须满足
 /// 2. Tool Calls 阈值可选满足
 /// 3. 安全条件：最后一条消息无 tool_calls
-pub fn should_extract_memory(
-    messages: &[ChatMessage],
-    state: &SessionMemoryState,
-) -> bool {
+pub fn should_extract_memory(messages: &[ChatMessage], state: &SessionMemoryState) -> bool {
     let current_token_count = estimate_message_tokens(messages);
 
     // 1. 初始化检查
-    if !state.initialized
-        && current_token_count < state.config.minimum_message_tokens_to_init
-    {
+    if !state.initialized && current_token_count < state.config.minimum_message_tokens_to_init {
         return false;
     }
     // 满足初始化阈值
@@ -174,7 +171,9 @@ pub fn count_tool_calls_since(
     // 优先使用 ID 查找起始位置
     let start_index = if let Some(id) = since_id {
         // 通过 ID 查找消息位置
-        messages.iter().position(|m| m.id.as_deref() == Some(id))
+        messages
+            .iter()
+            .position(|m| m.id.as_deref() == Some(id))
             .map(|i| i + 1) // 从下一条消息开始
             .unwrap_or_else(|| {
                 // ID 未找到，回退到索引
@@ -204,7 +203,9 @@ fn has_tool_calls_in_last_assistant_turn(messages: &[ChatMessage]) -> bool {
         .iter()
         .rev()
         .find(|m| m.role == "assistant")
-        .map(|m| m.tool_calls.is_some() && !m.tool_calls.as_ref().map(|t| t.is_empty()).unwrap_or(true))
+        .map(|m| {
+            m.tool_calls.is_some() && !m.tool_calls.as_ref().map(|t| t.is_empty()).unwrap_or(true)
+        })
         .unwrap_or(false)
 }
 
@@ -233,7 +234,9 @@ pub async fn extract_session_memory(
     // 记录 Layer 3 提取开始事件
     let message_count = messages.len();
     let token_estimate = estimate_message_tokens(&messages);
-    memory_event!(layer3, extraction_started,
+    memory_event!(
+        layer3,
+        extraction_started,
         memory_path.to_string_lossy().as_ref(),
         message_count,
         token_estimate
@@ -303,9 +306,9 @@ pub async fn extract_session_memory(
                     memory_path = %memory_path.display(),
                     "[session_memory] Restoring original content due to validation failure"
                 );
-                fs::write(memory_path, current_memory)
-                    .await
-                    .map_err(|e| ExtractionError::Validation(format!("Failed to restore memory file: {}", e)))?;
+                fs::write(memory_path, current_memory).await.map_err(|e| {
+                    ExtractionError::Validation(format!("Failed to restore memory file: {}", e))
+                })?;
             } else {
                 // 原始内容和 LLM 输出都无效，使用模板重置
                 // 先备份原始文件以便用户手动恢复
@@ -326,9 +329,12 @@ pub async fn extract_session_memory(
                     memory_path = %memory_path.display(),
                     "[session_memory] Both LLM output and original content invalid, resetting to template"
                 );
-                fs::write(memory_path, template)
-                    .await
-                    .map_err(|e| ExtractionError::Validation(format!("Failed to reset memory file to template: {}", e)))?;
+                fs::write(memory_path, template).await.map_err(|e| {
+                    ExtractionError::Validation(format!(
+                        "Failed to reset memory file to template: {}",
+                        e
+                    ))
+                })?;
             }
         } else if !template.is_empty() {
             // 无原始内容，使用模板重置
@@ -336,9 +342,12 @@ pub async fn extract_session_memory(
                 memory_path = %memory_path.display(),
                 "[session_memory] No original content and LLM output invalid, resetting to template"
             );
-            fs::write(memory_path, template)
-                .await
-                .map_err(|e| ExtractionError::Validation(format!("Failed to reset memory file to template: {}", e)))?;
+            fs::write(memory_path, template).await.map_err(|e| {
+                ExtractionError::Validation(format!(
+                    "Failed to reset memory file to template: {}",
+                    e
+                ))
+            })?;
         }
 
         return Err(ExtractionError::Validation(format!(
@@ -463,10 +472,7 @@ mod tests {
     #[test]
     fn test_has_tool_calls_in_last_assistant_turn() {
         // No tool calls
-        let messages = vec![
-            ChatMessage::user("Hello"),
-            ChatMessage::assistant("Hi!"),
-        ];
+        let messages = vec![ChatMessage::user("Hello"), ChatMessage::assistant("Hi!")];
         assert!(!has_tool_calls_in_last_assistant_turn(&messages));
 
         // Has tool calls
@@ -494,7 +500,12 @@ mod tests {
 
         // 低于阈值，不应提取
         let short_messages: Vec<ChatMessage> = (0..5)
-            .flat_map(|i| vec![ChatMessage::user(&format!("msg {}", i)), ChatMessage::assistant("ok")])
+            .flat_map(|i| {
+                vec![
+                    ChatMessage::user(&format!("msg {}", i)),
+                    ChatMessage::assistant("ok"),
+                ]
+            })
             .collect();
         assert!(!should_extract_memory(&short_messages, &state));
 
@@ -528,7 +539,12 @@ mod tests {
 
         // 已初始化，需要满足间隔条件（验证消息可构造）
         let _messages: Vec<ChatMessage> = (0..20)
-            .flat_map(|i| vec![ChatMessage::user(&format!("msg {}", i)), ChatMessage::assistant("ok")])
+            .flat_map(|i| {
+                vec![
+                    ChatMessage::user(&format!("msg {}", i)),
+                    ChatMessage::assistant("ok"),
+                ]
+            })
             .collect();
 
         // 验证状态
@@ -542,14 +558,12 @@ mod tests {
             id: None,
             role: "assistant".to_string(),
             content: serde_json::Value::String("Hello".to_string()),
-            tool_calls: Some(vec![
-                blockcell_core::types::ToolCallRequest {
-                    id: "call-1".to_string(),
-                    name: "read_file".to_string(),
-                    arguments: serde_json::json!({"path": "/test"}),
-                    thought_signature: None,
-                },
-            ]),
+            tool_calls: Some(vec![blockcell_core::types::ToolCallRequest {
+                id: "call-1".to_string(),
+                name: "read_file".to_string(),
+                arguments: serde_json::json!({"path": "/test"}),
+                thought_signature: None,
+            }]),
             tool_call_id: None,
             name: None,
             reasoning_content: None,

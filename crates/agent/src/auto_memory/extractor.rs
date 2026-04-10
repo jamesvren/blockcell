@@ -2,14 +2,13 @@
 //!
 //! 后台提取四种类型记忆的核心逻辑。
 
-use super::{
-    MemoryType, get_memory_file_path, MIN_MESSAGES_FOR_EXTRACTION,
-    EXTRACTION_COOLDOWN_MESSAGES, MAX_MEMORY_FILE_TOKENS,
-};
 use super::cursor::{ExtractionCursor, ExtractionCursorManager};
+use super::{
+    get_memory_file_path, MemoryType, EXTRACTION_COOLDOWN_MESSAGES, MAX_MEMORY_FILE_TOKENS,
+    MIN_MESSAGES_FOR_EXTRACTION,
+};
 use crate::forked::{
-    run_forked_agent, ForkedAgentParams, CacheSafeParams,
-    create_auto_mem_can_use_tool,
+    create_auto_mem_can_use_tool, run_forked_agent, CacheSafeParams, ForkedAgentParams,
 };
 use crate::memory_event;
 use blockcell_core::types::ChatMessage;
@@ -179,7 +178,9 @@ impl AutoMemoryExtractor {
                 // 记录 Layer 5 memory_written 事件
                 // 读取写入后的文件内容来获取长度
                 if let Ok(updated_content) = tokio::fs::read_to_string(&memory_path).await {
-                    memory_event!(layer5, memory_written,
+                    memory_event!(
+                        layer5,
+                        memory_written,
                         memory_type.name(),
                         memory_path.to_string_lossy().as_ref(),
                         updated_content.len()
@@ -283,7 +284,7 @@ pub async fn extract_auto_memory(
     system_prompt: Arc<String>,
     model: &str,
     messages: Vec<ChatMessage>,
-    cursor: ExtractionCursor,  // 用于验证提取条件
+    cursor: ExtractionCursor, // 用于验证提取条件
 ) -> ExtractionResult {
     // 使用 cursor 验证是否满足提取条件
     let current_message_count = messages.len();
@@ -369,16 +370,14 @@ pub async fn extract_auto_memory(
                 cursor_save_failed: false,
             }
         }
-        Err(e) => {
-            ExtractionResult {
-                memory_type,
-                success: false,
-                input_tokens: 0,
-                output_tokens: 0,
-                error: Some(e.to_string()),
-                cursor_save_failed: false,
-            }
-        }
+        Err(e) => ExtractionResult {
+            memory_type,
+            success: false,
+            input_tokens: 0,
+            output_tokens: 0,
+            error: Some(e.to_string()),
+            cursor_save_failed: false,
+        },
     }
 }
 

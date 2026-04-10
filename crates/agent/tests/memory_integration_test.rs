@@ -4,9 +4,13 @@
 
 #[cfg(test)]
 mod tests {
-    use blockcell_agent::memory_system::{MemorySystem, MemorySystemConfig, evaluate_memory_hooks, PostSamplingAction};
-    use blockcell_agent::session_memory::{SessionMemoryConfig, SessionMemoryState, should_extract_memory};
-    use blockcell_agent::auto_memory::{MemoryType, ExtractionCursorManager, ExtractionCursor};
+    use blockcell_agent::auto_memory::{ExtractionCursor, ExtractionCursorManager, MemoryType};
+    use blockcell_agent::memory_system::{
+        evaluate_memory_hooks, MemorySystem, MemorySystemConfig, PostSamplingAction,
+    };
+    use blockcell_agent::session_memory::{
+        should_extract_memory, SessionMemoryConfig, SessionMemoryState,
+    };
     use blockcell_core::types::ChatMessage;
     use std::path::PathBuf;
 
@@ -61,10 +65,7 @@ mod tests {
             "test".to_string(),
         );
 
-        let messages = vec![
-            ChatMessage::user("Hello"),
-            ChatMessage::assistant("Hi!"),
-        ];
+        let messages = vec![ChatMessage::user("Hello"), ChatMessage::assistant("Hi!")];
 
         let action = evaluate_memory_hooks(&memory_system, &messages, 100);
         assert!(matches!(action, PostSamplingAction::None));
@@ -334,14 +335,12 @@ mod tests {
             role: "assistant".to_string(),
             content: serde_json::Value::String(String::new()),
             reasoning_content: None,
-            tool_calls: Some(vec![
-                ToolCallRequest {
-                    id: "tool-1".to_string(),
-                    name: "read_file".to_string(),
-                    arguments: serde_json::json!({}),
-                    thought_signature: None,
-                },
-            ]),
+            tool_calls: Some(vec![ToolCallRequest {
+                id: "tool-1".to_string(),
+                name: "read_file".to_string(),
+                arguments: serde_json::json!({}),
+                thought_signature: None,
+            }]),
             tool_call_id: None,
             name: None,
         };
@@ -352,7 +351,7 @@ mod tests {
         // 使用消息 ID 定位
         let count = blockcell_agent::session_memory::count_tool_calls_since(
             &messages,
-            Some("msg-1"),  // 从 msg-1 之后开始
+            Some("msg-1"), // 从 msg-1 之后开始
             None,
         );
 
@@ -370,20 +369,20 @@ mod tests {
             ToolDefinition::new("write_file", "Write file contents", serde_json::json!({})),
         ];
 
-        let params1 = CacheSafeParams::new("system", "model")
-            .with_tools(tools.clone());
+        let params1 = CacheSafeParams::new("system", "model").with_tools(tools.clone());
 
-        let params2 = CacheSafeParams::new("system", "model")
-            .with_tools(tools);
+        let params2 = CacheSafeParams::new("system", "model").with_tools(tools);
 
         // 相同工具定义应该兼容
         assert!(params1.is_compatible_with(&params2));
 
         // 不同工具定义应该不兼容
-        let params3 = CacheSafeParams::new("system", "model")
-            .with_tools(vec![
-                ToolDefinition::new("read_file", "Read file", serde_json::json!({})),
-            ]);
+        let params3 =
+            CacheSafeParams::new("system", "model").with_tools(vec![ToolDefinition::new(
+                "read_file",
+                "Read file",
+                serde_json::json!({}),
+            )]);
         assert!(!params1.is_compatible_with(&params3));
     }
 
@@ -400,11 +399,7 @@ mod tests {
 
         // 使用带 ID 的更新方法
         let msg_id = "msg-uuid-67890".to_string();
-        memory_system.update_session_memory_state_with_id(
-            Some(msg_id.clone()),
-            42,
-            5000,
-        );
+        memory_system.update_session_memory_state_with_id(Some(msg_id.clone()), 42, 5000);
 
         // 验证状态
         let state = memory_system.session_memory_state();
@@ -423,11 +418,10 @@ mod tests {
     /// 验证：当工具结果被持久化后，时间触发轻量压缩能正确清理旧内容
     #[test]
     fn test_layer1_layer2_interaction() {
-        use blockcell_agent::response_cache::{
-            generate_preview,
-            PREVIEW_SIZE_BYTES, TIME_BASED_MC_CLEARED_MESSAGE,
-        };
         use blockcell_agent::history_projector::COMPACTABLE_TOOLS;
+        use blockcell_agent::response_cache::{
+            generate_preview, PREVIEW_SIZE_BYTES, TIME_BASED_MC_CLEARED_MESSAGE,
+        };
 
         // Layer 1: 生成预览
         let large_content = "line1\nline2\nline3\nline4\nline5\n".repeat(1000);
@@ -448,12 +442,9 @@ mod tests {
     #[test]
     fn test_layer3_layer4_recovery_interaction() {
         use blockcell_agent::compact::{
-            FileRecoveryState,
-            MAX_FILE_RECOVERY_TOKENS, MAX_SINGLE_FILE_TOKENS,
+            FileRecoveryState, MAX_FILE_RECOVERY_TOKENS, MAX_SINGLE_FILE_TOKENS,
         };
-        use blockcell_agent::session_memory::{
-            Section, SectionPriority,
-        };
+        use blockcell_agent::session_memory::{Section, SectionPriority};
 
         // Layer 3: 创建会话记忆章节（验证类型可构造）
         let _section = Section {
@@ -481,10 +472,7 @@ mod tests {
     /// 验证：Forked Agent 的工具权限正确限制记忆提取操作
     #[test]
     fn test_layer5_layer7_forked_interaction() {
-        use blockcell_agent::forked::{
-            ToolPermission,
-            create_auto_mem_can_use_tool,
-        };
+        use blockcell_agent::forked::{create_auto_mem_can_use_tool, ToolPermission};
         use std::fs;
 
         // 创建临时目录进行测试
@@ -497,7 +485,10 @@ mod tests {
 
         // Layer 5: 自动记忆提取允许的工具
         // read_file 应该被允许（返回 Allow）
-        let result = can_use("read_file", &serde_json::json!({"file_path": "/tmp/test.md"}));
+        let result = can_use(
+            "read_file",
+            &serde_json::json!({"file_path": "/tmp/test.md"}),
+        );
         assert!(matches!(result, ToolPermission::Allow));
 
         // grep 应该被允许
@@ -511,11 +502,17 @@ mod tests {
         // file_edit 在 memory 目录内应该被允许（使用临时目录路径）
         let memory_file = temp_dir.join("user.md");
         let memory_file_str = memory_file.to_string_lossy();
-        let result = can_use("file_edit", &serde_json::json!({"file_path": memory_file_str.as_ref()}));
+        let result = can_use(
+            "file_edit",
+            &serde_json::json!({"file_path": memory_file_str.as_ref()}),
+        );
         assert!(matches!(result, ToolPermission::Allow));
 
         // file_edit 在 memory 目录外应该被拒绝
-        let result = can_use("file_edit", &serde_json::json!({"file_path": "/tmp/other/file.md"}));
+        let result = can_use(
+            "file_edit",
+            &serde_json::json!({"file_path": "/tmp/other/file.md"}),
+        );
         assert!(matches!(result, ToolPermission::Deny { .. }));
 
         // 不允许的危险操作
@@ -570,11 +567,10 @@ mod tests {
     /// 验证：消息处理流程中各层正确协作
     #[test]
     fn test_full_memory_flow() {
-        use blockcell_agent::response_cache::{
-            DEFAULT_MAX_RESULT_SIZE_CHARS,
-            MAX_TOOL_RESULTS_PER_MESSAGE_CHARS,
-        };
         use blockcell_agent::memory_system::MemorySystemConfig;
+        use blockcell_agent::response_cache::{
+            DEFAULT_MAX_RESULT_SIZE_CHARS, MAX_TOOL_RESULTS_PER_MESSAGE_CHARS,
+        };
 
         // Layer 1 预算检查
         let tool_result_size = 60_000; // 超过单工具阈值
@@ -610,22 +606,20 @@ mod tests {
     /// 验证：Pre/Post Compact Hook 能正确注册和调用
     #[test]
     fn test_compact_hooks_registration() {
-        use blockcell_agent::compact::{CompactHookRegistry, PreCompactContext, PostCompactContext};
+        use blockcell_agent::compact::{
+            CompactHookRegistry, PostCompactContext, PreCompactContext,
+        };
 
         let mut registry = CompactHookRegistry::new();
 
         // 注册 Pre-Hook
         registry.register_pre_hook(|_ctx: PreCompactContext| {
-            Box::pin(async {
-                blockcell_agent::compact::PreCompactResult::Continue
-            })
+            Box::pin(async { blockcell_agent::compact::PreCompactResult::Continue })
         });
 
         // 注册 Post-Hook
         registry.register_post_hook(|_ctx: PostCompactContext| {
-            Box::pin(async {
-                blockcell_agent::compact::PostCompactResult::Success
-            })
+            Box::pin(async { blockcell_agent::compact::PostCompactResult::Success })
         });
 
         // 验证 Hook 已注册
@@ -638,13 +632,13 @@ mod tests {
     /// 验证：实现常量与设计文档一致
     #[test]
     fn test_constants_consistency() {
-        use blockcell_agent::response_cache::{
-            PREVIEW_SIZE_BYTES, DEFAULT_MAX_RESULT_SIZE_CHARS,
-            MAX_TOOL_RESULTS_PER_MESSAGE_CHARS, IMAGE_MAX_TOKEN_SIZE,
-        };
         use blockcell_agent::compact::{
-            MAX_FILE_RECOVERY_TOKENS, MAX_SINGLE_FILE_TOKENS,
-            MAX_SKILL_RECOVERY_TOKENS, MAX_FILES_TO_RECOVER,
+            MAX_FILES_TO_RECOVER, MAX_FILE_RECOVERY_TOKENS, MAX_SINGLE_FILE_TOKENS,
+            MAX_SKILL_RECOVERY_TOKENS,
+        };
+        use blockcell_agent::response_cache::{
+            DEFAULT_MAX_RESULT_SIZE_CHARS, IMAGE_MAX_TOKEN_SIZE,
+            MAX_TOOL_RESULTS_PER_MESSAGE_CHARS, PREVIEW_SIZE_BYTES,
         };
         use blockcell_agent::session_memory::{
             MAX_SECTION_LENGTH, MAX_TOTAL_SESSION_MEMORY_TOKENS,
@@ -680,11 +674,8 @@ mod tests {
     /// 3. 达到阈值时正确触发 Compact
     #[test]
     fn test_layer1_to_layer4_compact_trigger() {
-        use blockcell_agent::response_cache::{
-            ToolResultCandidate,
-            DEFAULT_MAX_RESULT_SIZE_CHARS,
-        };
         use blockcell_agent::compact::should_compact;
+        use blockcell_agent::response_cache::{ToolResultCandidate, DEFAULT_MAX_RESULT_SIZE_CHARS};
 
         // 模拟 Layer 1: 工具结果候选
         let candidates: Vec<ToolResultCandidate> = (0..10)
@@ -721,11 +712,9 @@ mod tests {
     /// 3. 满足条件时触发提取
     #[test]
     fn test_layer3_to_layer5_extraction_flow() {
+        use blockcell_agent::auto_memory::{ExtractionCursor, MemoryType};
         use blockcell_agent::session_memory::{
-            SessionMemoryState, SessionMemoryConfig, should_extract_memory,
-        };
-        use blockcell_agent::auto_memory::{
-            ExtractionCursor, MemoryType,
+            should_extract_memory, SessionMemoryConfig, SessionMemoryState,
         };
 
         // Layer 3: Session Memory 状态
@@ -749,8 +738,14 @@ mod tests {
         let messages: Vec<ChatMessage> = (0..200)
             .flat_map(|i| {
                 vec![
-                    ChatMessage::user(&format!("User message number {} with substantial content to reach threshold", i)),
-                    ChatMessage::assistant(&format!("Assistant response {} with meaningful content", i)),
+                    ChatMessage::user(&format!(
+                        "User message number {} with substantial content to reach threshold",
+                        i
+                    )),
+                    ChatMessage::assistant(&format!(
+                        "Assistant response {} with meaningful content",
+                        i
+                    )),
                 ]
             })
             .collect();
@@ -784,8 +779,7 @@ mod tests {
     #[test]
     fn test_layer7_forked_agent_flow() {
         use blockcell_agent::forked::{
-            ForkedAgentParams, CacheSafeParams,
-            ToolPermission, ToolDefinition,
+            CacheSafeParams, ForkedAgentParams, ToolDefinition, ToolPermission,
         };
 
         // 验证 builder 缺少 provider 时 build() 返回 Err
@@ -799,26 +793,27 @@ mod tests {
         assert!(result.is_err());
 
         // 验证 CacheSafeParams 兼容性检查
-        let params1 = CacheSafeParams::new("system prompt", "model-name")
-            .with_tools(vec![
-                ToolDefinition::new("read_file", "Read", serde_json::json!({})),
-            ]);
+        let params1 = CacheSafeParams::new("system prompt", "model-name").with_tools(vec![
+            ToolDefinition::new("read_file", "Read", serde_json::json!({})),
+        ]);
 
-        let params2 = CacheSafeParams::new("system prompt", "model-name")
-            .with_tools(vec![
-                ToolDefinition::new("read_file", "Read", serde_json::json!({})),
-            ]);
+        let params2 = CacheSafeParams::new("system prompt", "model-name").with_tools(vec![
+            ToolDefinition::new("read_file", "Read", serde_json::json!({})),
+        ]);
 
         // 相同配置应兼容
         assert!(params1.is_compatible_with(&params2));
 
         // 验证工具权限检查函数存在
-        let can_use = blockcell_agent::forked::create_auto_mem_can_use_tool(
-            std::path::Path::new("/tmp/memory")
-        );
+        let can_use = blockcell_agent::forked::create_auto_mem_can_use_tool(std::path::Path::new(
+            "/tmp/memory",
+        ));
 
         // read_file 应该被允许
-        let result = can_use("read_file", &serde_json::json!({"file_path": "/tmp/test.md"}));
+        let result = can_use(
+            "read_file",
+            &serde_json::json!({"file_path": "/tmp/test.md"}),
+        );
         assert!(matches!(result, ToolPermission::Allow));
     }
 
@@ -853,11 +848,7 @@ mod tests {
 
         // 更新 Session Memory 状态
         let msg_id = "msg-consistency-123".to_string();
-        memory_system.update_session_memory_state_with_id(
-            Some(msg_id.clone()),
-            42,
-            10_000,
-        );
+        memory_system.update_session_memory_state_with_id(Some(msg_id.clone()), 42, 10_000);
 
         // 验证状态更新
         let state = memory_system.session_memory_state();
@@ -968,8 +959,8 @@ mod tests {
     #[test]
     fn test_compact_recovery_reinjection() {
         use blockcell_agent::compact::{
-            FileTracker, SkillTracker, build_recovery_message,
-            MAX_FILES_TO_RECOVER, MAX_SINGLE_FILE_TOKENS,
+            build_recovery_message, FileTracker, SkillTracker, MAX_FILES_TO_RECOVER,
+            MAX_SINGLE_FILE_TOKENS,
         };
         use std::path::PathBuf;
 
@@ -1012,11 +1003,8 @@ _No errors encountered._
 "#;
 
         // 4. 构建恢复消息
-        let recovery_message = build_recovery_message(
-            &file_tracker,
-            &skill_tracker,
-            Some(session_memory),
-        );
+        let recovery_message =
+            build_recovery_message(&file_tracker, &skill_tracker, Some(session_memory));
 
         // 5. 验证恢复消息内容
         assert!(recovery_message.contains("Files Previously Read"));
@@ -1035,7 +1023,8 @@ _No errors encountered._
         assert!(recovery_message.contains("Current State"));
 
         // 9. 验证 FileTracker 获取最近文件
-        let recent_files = file_tracker.get_recent_files(MAX_FILES_TO_RECOVER, MAX_SINGLE_FILE_TOKENS);
+        let recent_files =
+            file_tracker.get_recent_files(MAX_FILES_TO_RECOVER, MAX_SINGLE_FILE_TOKENS);
         assert!(!recent_files.is_empty());
         assert!(recent_files.len() <= MAX_FILES_TO_RECOVER);
 
@@ -1057,9 +1046,7 @@ _No errors encountered._
     /// 验证恢复消息的格式符合预期，能被 LLM 正确理解
     #[test]
     fn test_compact_recovery_message_format() {
-        use blockcell_agent::compact::{
-            FileTracker, SkillTracker, build_recovery_message,
-        };
+        use blockcell_agent::compact::{build_recovery_message, FileTracker, SkillTracker};
 
         // 创建空的 tracker
         let file_tracker = FileTracker::new();
@@ -1098,18 +1085,14 @@ _No errors encountered._
     #[test]
     fn test_compact_recovery_token_budget() {
         use blockcell_agent::compact::{
-            FileTracker, SkillTracker, build_recovery_message,
-            MAX_SINGLE_FILE_TOKENS,
+            build_recovery_message, FileTracker, SkillTracker, MAX_SINGLE_FILE_TOKENS,
         };
 
         // 创建包含大量内容的 tracker
         let mut file_tracker = FileTracker::new();
         for i in 0..20 {
             let content = "x".repeat(10000); // 每个文件 10000 字符
-            file_tracker.record_read(
-                PathBuf::from(format!("/file{}.rs", i)),
-                &content,
-            );
+            file_tracker.record_read(PathBuf::from(format!("/file{}.rs", i)), &content);
         }
 
         let mut skill_tracker = SkillTracker::new();
@@ -1142,7 +1125,10 @@ _No errors encountered._
         assert!(!recovery.is_empty());
 
         // 验证恢复消息包含预期的结构
-        assert!(recovery.contains("Files Previously Read") || recovery.contains("Skills Previously Loaded"));
+        assert!(
+            recovery.contains("Files Previously Read")
+                || recovery.contains("Skills Previously Loaded")
+        );
     }
 
     // =========================================================================
@@ -1156,8 +1142,8 @@ _No errors encountered._
     #[test]
     fn test_layer1_to_layer2_workflow() {
         use blockcell_agent::response_cache::{
-            ContentReplacementState,
-            MAX_TOOL_RESULTS_PER_MESSAGE_CHARS, DEFAULT_MAX_RESULT_SIZE_CHARS,
+            ContentReplacementState, DEFAULT_MAX_RESULT_SIZE_CHARS,
+            MAX_TOOL_RESULTS_PER_MESSAGE_CHARS,
         };
 
         // 模拟 Layer 1: 大工具结果超过单工具阈值
@@ -1313,7 +1299,12 @@ _No errors encountered._
 
         // 创建足够多的消息
         let messages: Vec<ChatMessage> = (0..20)
-            .flat_map(|i| vec![ChatMessage::user(&format!("msg {}", i)), ChatMessage::assistant("resp")])
+            .flat_map(|i| {
+                vec![
+                    ChatMessage::user(&format!("msg {}", i)),
+                    ChatMessage::assistant("resp"),
+                ]
+            })
             .collect();
 
         // 当 Token 超过阈值时，应返回 Compact 而不是其他 Action
@@ -1326,13 +1317,11 @@ _No errors encountered._
     /// 测试 Layer 各层 Token 预算约束
     #[test]
     fn test_layer_token_budgets() {
-        use blockcell_agent::response_cache::{
-            PREVIEW_SIZE_BYTES, DEFAULT_MAX_RESULT_SIZE_CHARS,
-            MAX_TOOL_RESULTS_PER_MESSAGE_CHARS,
-        };
         use blockcell_agent::compact::{
-            MAX_FILE_RECOVERY_TOKENS, MAX_SKILL_RECOVERY_TOKENS,
-            MAX_SINGLE_FILE_TOKENS,
+            MAX_FILE_RECOVERY_TOKENS, MAX_SINGLE_FILE_TOKENS, MAX_SKILL_RECOVERY_TOKENS,
+        };
+        use blockcell_agent::response_cache::{
+            DEFAULT_MAX_RESULT_SIZE_CHARS, MAX_TOOL_RESULTS_PER_MESSAGE_CHARS, PREVIEW_SIZE_BYTES,
         };
         use blockcell_agent::session_memory::MAX_SECTION_LENGTH;
 
@@ -1368,11 +1357,7 @@ _No errors encountered._
         assert_eq!(memory_system.background_task_count(), 0);
 
         // 更新 Session Memory 状态
-        memory_system.update_session_memory_state_with_id(
-            Some("msg-50".to_string()),
-            50,
-            5000,
-        );
+        memory_system.update_session_memory_state_with_id(Some("msg-50".to_string()), 50, 5000);
 
         let state = memory_system.session_memory_state();
         assert!(state.initialized);
@@ -1380,10 +1365,7 @@ _No errors encountered._
         assert_eq!(state.tokens_at_last_extraction, 5000);
 
         // 记录文件读取
-        memory_system.record_file_read(
-            PathBuf::from("/test/file.rs"),
-            "fn main() {}",
-        );
+        memory_system.record_file_read(PathBuf::from("/test/file.rs"), "fn main() {}");
 
         let file_tracker = memory_system.file_tracker();
         assert!(!file_tracker.is_empty());

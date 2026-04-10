@@ -23,10 +23,7 @@ pub struct NapCatChannel {
 impl NapCatChannel {
     /// Create a new NapCatChannel instance.
     pub fn new(config: Config, inbound_tx: mpsc::Sender<InboundMessage>) -> Self {
-        Self {
-            config,
-            inbound_tx,
-        }
+        Self { config, inbound_tx }
     }
 
     /// Get the connection mode from config.
@@ -75,10 +72,7 @@ impl NapCatChannel {
                 server.run(shutdown).await;
             }
             _ => {
-                warn!(
-                    "Unknown NapCatQQ mode: {}, defaulting to ws-client",
-                    mode
-                );
+                warn!("Unknown NapCatQQ mode: {}, defaulting to ws-client", mode);
                 if napcat.ws_url.is_empty() {
                     warn!("NapCatQQ ws_url not configured");
                     return;

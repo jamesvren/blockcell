@@ -5,13 +5,13 @@
 //! - ws-client: WebSocket client mode
 //! - ws-server: WebSocket server mode
 
+use super::downloader::{MediaDownloader, UnifiedDownloadRequest, UnifiedDownloadResult};
+use super::types::{DownloadStrategy, UrlDetectionResult};
 use async_trait::async_trait;
 use blockcell_core::config::NapCatConfig;
 use blockcell_core::{Error, Result};
 use std::time::Instant;
 use tracing::{debug, info};
-use super::downloader::{MediaDownloader, UnifiedDownloadRequest, UnifiedDownloadResult};
-use super::types::{DownloadStrategy, UrlDetectionResult};
 
 /// NapCat streaming downloader.
 ///
@@ -54,11 +54,14 @@ impl MediaDownloader for NapCatStreamDownloader {
         let data = download_via_napcat_stream(url, &self.config).await?;
 
         // Determine filename - handle empty string case
-        let filename = request.filename.clone()
+        let filename = request
+            .filename
+            .clone()
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| {
-                super::detector::extract_filename_from_url(url)
-                    .unwrap_or_else(|| format!("media_{}", chrono::Utc::now().format("%Y%m%d_%H%M%S")))
+                super::detector::extract_filename_from_url(url).unwrap_or_else(|| {
+                    format!("media_{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"))
+                })
             });
 
         // Save to local file
@@ -105,9 +108,7 @@ async fn download_via_ws_stream(url: &str) -> Result<Vec<u8>> {
     use crate::napcat::websocket::{call_stream_api_via_ws, is_ws_stream_available};
 
     if !is_ws_stream_available() {
-        return Err(Error::Channel(
-            "WebSocket stream not available".to_string(),
-        ));
+        return Err(Error::Channel("WebSocket stream not available".to_string()));
     }
 
     let request = ApiRequest::download_file_stream(url, Some(3), None, None);

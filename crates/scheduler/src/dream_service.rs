@@ -77,13 +77,11 @@ impl DreamService {
 
         // 启动时检查 provider_pool 配置
         if self.config.provider_pool.is_none() {
-            tracing::warn!(
-                concat!(
-                    "[dream] ⚠️  DreamService started WITHOUT provider_pool! ",
-                    "Dream consolidation will be skipped. ",
-                    "To enable dream consolidation, configure a provider in your config."
-                )
-            );
+            tracing::warn!(concat!(
+                "[dream] ⚠️  DreamService started WITHOUT provider_pool! ",
+                "Dream consolidation will be skipped. ",
+                "To enable dream consolidation, configure a provider in your config."
+            ));
         } else {
             tracing::info!(
                 check_interval_secs = self.config.check_interval_secs,
@@ -165,7 +163,10 @@ impl DreamService {
     }
 
     /// 手动触发梦境（用于测试或管理命令）
-    pub async fn trigger_dream(paths: &Paths, provider_pool: Arc<ProviderPool>) -> Result<(), String> {
+    pub async fn trigger_dream(
+        paths: &Paths,
+        provider_pool: Arc<ProviderPool>,
+    ) -> Result<(), String> {
         let config_dir = paths.base.clone();
 
         let consolidator = DreamConsolidator::new(&config_dir)

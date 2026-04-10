@@ -116,12 +116,12 @@ pub async fn send_via_ws(request: ApiRequest) -> Result<(), String> {
 
 /// Send a message via WebSocket with a specific self_id (for server mode).
 /// Returns an error if WebSocket mode is not active.
-pub async fn send_via_ws_with_self_id(request: ApiRequest, self_id: Option<String>) -> Result<(), String> {
+pub async fn send_via_ws_with_self_id(
+    request: ApiRequest,
+    self_id: Option<String>,
+) -> Result<(), String> {
     let sender = get_sender().ok_or("WebSocket not connected")?;
-    let msg = OutboundMessage {
-        request,
-        self_id,
-    };
+    let msg = OutboundMessage { request, self_id };
     sender
         .send(msg)
         .await
@@ -131,7 +131,10 @@ pub async fn send_via_ws_with_self_id(request: ApiRequest, self_id: Option<Strin
 /// Call an API via WebSocket and wait for response.
 /// Returns the API response or an error.
 pub async fn call_api_via_ws(request: ApiRequest) -> Result<ApiResponse, String> {
-    let caller = API_CALLER.get().cloned().ok_or("WebSocket API caller not available")?;
+    let caller = API_CALLER
+        .get()
+        .cloned()
+        .ok_or("WebSocket API caller not available")?;
 
     let (response_tx, response_rx) = oneshot::channel();
 
@@ -146,12 +149,9 @@ pub async fn call_api_via_ws(request: ApiRequest) -> Result<ApiResponse, String>
         .map_err(|e| format!("Failed to queue API call: {}", e))?;
 
     // Wait for response with timeout
-    let result = tokio::time::timeout(
-        std::time::Duration::from_secs(60),
-        response_rx
-    )
-    .await
-    .map_err(|_| "API call timeout".to_string())?;
+    let result = tokio::time::timeout(std::time::Duration::from_secs(60), response_rx)
+        .await
+        .map_err(|_| "API call timeout".to_string())?;
 
     result.map_err(|_| "API response channel closed".to_string())
 }
@@ -166,7 +166,10 @@ pub async fn call_api_via_ws(request: ApiRequest) -> Result<ApiResponse, String>
 /// 4. Combines all chunks in order
 /// 5. Returns the complete file data
 pub async fn call_stream_api_via_ws(request: ApiRequest) -> Result<Vec<u8>, String> {
-    let caller = STREAM_CALLER.get().cloned().ok_or("WebSocket stream caller not available")?;
+    let caller = STREAM_CALLER
+        .get()
+        .cloned()
+        .ok_or("WebSocket stream caller not available")?;
 
     let (chunk_tx, mut chunk_rx) = mpsc::channel::<StreamChunkData>(64);
     let (done_tx, mut done_rx) = oneshot::channel::<Result<(), String>>();

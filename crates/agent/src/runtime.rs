@@ -20,15 +20,13 @@ use tracing::{debug, error, info, warn};
 
 use crate::context::{ActiveSkillContext, ContextBuilder, InteractionMode};
 use crate::error::{
-    classify_tool_failure, dangerous_exec_denied, dangerous_file_ops_denied,
-    disabled_skill_result, disabled_tool_result, llm_exhausted_error,
-    scoped_tool_denied_result, ToolFailureKind,
+    classify_tool_failure, dangerous_exec_denied, dangerous_file_ops_denied, disabled_skill_result,
+    disabled_tool_result, llm_exhausted_error, scoped_tool_denied_result, ToolFailureKind,
 };
 use crate::history_projector::{HistoryProjector, TimeBasedMCConfig};
 use crate::intent::{IntentCategory, IntentToolResolver};
 use crate::session_metrics::{ProcessingMetrics, ScopedTimer};
 use crate::skill_executor::{determine_manual_load_mode, SkillExecutionResult};
-use crate::token::estimate_messages_tokens;
 use crate::skill_kernel::SkillRunMode;
 use crate::summary_queue::MainSessionSummaryQueue;
 use crate::system_event_orchestrator::{
@@ -36,6 +34,7 @@ use crate::system_event_orchestrator::{
 };
 use crate::system_event_store::{InMemorySystemEventStore, SystemEventStoreOps};
 use crate::task_manager::TaskManager;
+use crate::token::estimate_messages_tokens;
 
 const TOOL_ROUND_THROTTLE_MS: u64 = 600;
 const TOOL_ROUND_THROTTLE_AFTER_RATE_LIMIT_MS: u64 = 2_500;
@@ -296,7 +295,10 @@ fn inject_skill_cards_into_system_prompt(
     system_message.content = serde_json::Value::String(format!("{}{}", existing_prompt, section));
 }
 
-fn normalize_selected_skill_name(raw_skill_name: &str, skill_cards: &[SkillCard]) -> Option<String> {
+fn normalize_selected_skill_name(
+    raw_skill_name: &str,
+    skill_cards: &[SkillCard],
+) -> Option<String> {
     let candidates = skill_cards
         .iter()
         .map(|card| (card.name.clone(), card.description.clone()))
@@ -530,11 +532,9 @@ fn active_skill_name_from_metadata(metadata: &serde_json::Value) -> Option<Strin
         .map(str::to_string)
 }
 
-fn continued_skill_name(
-    metadata: &serde_json::Value,
-    history: &[ChatMessage],
-) -> Option<String> {
-    active_skill_name_from_metadata(metadata).or_else(|| find_recent_skill_name_from_history(history))
+fn continued_skill_name(metadata: &serde_json::Value, history: &[ChatMessage]) -> Option<String> {
+    active_skill_name_from_metadata(metadata)
+        .or_else(|| find_recent_skill_name_from_history(history))
 }
 
 fn record_active_skill_name(metadata: &mut serde_json::Value, skill_name: &str) {
@@ -1656,19 +1656,16 @@ impl AgentRuntime {
     /// - Loads cursor state from disk
     /// - Marks session as active (creates `.active` file)
     pub async fn init_memory_system(&mut self, session_id: String) -> std::io::Result<()> {
+        use crate::compact::{
+            MAX_FILE_RECOVERY_TOKENS, MAX_SESSION_MEMORY_RECOVERY_TOKENS, MAX_SKILL_RECOVERY_TOKENS,
+        };
         use crate::memory_system::{MemorySystem, MemorySystemConfig};
-        use crate::compact::{MAX_FILE_RECOVERY_TOKENS, MAX_SKILL_RECOVERY_TOKENS, MAX_SESSION_MEMORY_RECOVERY_TOKENS};
 
         let config = MemorySystemConfig::default();
         // Use paths.base as both workspace and config directory
         let base_dir = self.paths.base.clone();
 
-        let mut memory_system = MemorySystem::new(
-            config,
-            base_dir.clone(),
-            base_dir,
-            session_id,
-        );
+        let mut memory_system = MemorySystem::new(config, base_dir.clone(), base_dir, session_id);
 
         // Perform async initialization: load cursor state + mark session active
         memory_system.initialize().await?;
@@ -1676,34 +1673,46 @@ impl AgentRuntime {
         // ========== Record config for all layers to metrics ==========
 
         // Layer 1: Tool Result Storage
-        crate::memory_event!(layer1, config,
+        crate::memory_event!(
+            layer1,
+            config,
             50, // max_tool_results (default per session)
             crate::response_cache::PREVIEW_SIZE_BYTES
         );
 
         // Layer 2: Micro Compact
         let layer2_config = crate::history_projector::TimeBasedMCConfig::default();
-        crate::memory_event!(layer2, config,
+        crate::memory_event!(
+            layer2,
+            config,
             layer2_config.gap_threshold_minutes,
             layer2_config.keep_recent
         );
 
         // Layer 3: Session Memory
-        crate::memory_event!(layer3, config,
+        crate::memory_event!(
+            layer3,
+            config,
             crate::session_memory::MAX_TOTAL_SESSION_MEMORY_TOKENS,
             crate::session_memory::MAX_SECTION_LENGTH
         );
 
         // Layer 4: Full Compact
-        let recovery_budget = MAX_FILE_RECOVERY_TOKENS + MAX_SKILL_RECOVERY_TOKENS + MAX_SESSION_MEMORY_RECOVERY_TOKENS;
-        crate::memory_event!(layer4, config,
+        let recovery_budget = MAX_FILE_RECOVERY_TOKENS
+            + MAX_SKILL_RECOVERY_TOKENS
+            + MAX_SESSION_MEMORY_RECOVERY_TOKENS;
+        crate::memory_event!(
+            layer4,
+            config,
             memory_system.config().token_budget,
             memory_system.config().compact_threshold,
             recovery_budget
         );
 
         // Layer 5: Memory Extraction
-        crate::memory_event!(layer5, config,
+        crate::memory_event!(
+            layer5,
+            config,
             crate::auto_memory::MIN_MESSAGES_FOR_EXTRACTION,
             crate::auto_memory::EXTRACTION_COOLDOWN_MESSAGES,
             crate::auto_memory::MAX_MEMORY_FILE_TOKENS
@@ -1881,7 +1890,7 @@ impl AgentRuntime {
     /// This loads the four memory files (user.md, project.md, feedback.md, reference.md)
     /// from the memory directory and makes them available for system prompt injection.
     pub async fn init_memory_injector(&mut self) -> std::io::Result<()> {
-        use crate::auto_memory::{MemoryInjector, get_memory_dir};
+        use crate::auto_memory::{get_memory_dir, MemoryInjector};
 
         // Use the config base directory (e.g., ~/.blockcell/memory/)
         let memory_dir = get_memory_dir(&self.paths.base);
@@ -1921,12 +1930,14 @@ impl AgentRuntime {
 
     /// Check if memory injector cache needs refresh.
     pub fn memory_injector_needs_reload(&self) -> bool {
-        self.memory_injector_needs_reload.load(std::sync::atomic::Ordering::Relaxed)
+        self.memory_injector_needs_reload
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Signal that memory injector cache needs refresh (called by background tasks).
     pub fn signal_memory_injector_reload(&self) {
-        self.memory_injector_needs_reload.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.memory_injector_needs_reload
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Reload memory injector cache if needed.
@@ -1936,7 +1947,7 @@ impl AgentRuntime {
             return Ok(());
         }
 
-        use crate::auto_memory::{MemoryInjector, get_memory_dir};
+        use crate::auto_memory::{get_memory_dir, MemoryInjector};
 
         let memory_dir = get_memory_dir(&self.paths.base);
         let mut injector = MemoryInjector::default_injector();
@@ -1950,7 +1961,8 @@ impl AgentRuntime {
         );
 
         self.context_builder.set_memory_injector(injector);
-        self.memory_injector_needs_reload.store(false, std::sync::atomic::Ordering::Relaxed);
+        self.memory_injector_needs_reload
+            .store(false, std::sync::atomic::Ordering::Relaxed);
 
         Ok(())
     }
@@ -2135,7 +2147,7 @@ impl AgentRuntime {
         compact_ctx: Option<CompactContext<'_>>,
         is_auto: bool,
     ) -> crate::compact::CompactResult {
-        use crate::compact::{CompactResult, generate_compact_summary};
+        use crate::compact::{generate_compact_summary, CompactResult};
         use crate::session_memory::get_session_memory_path;
         use crate::session_metrics::get_compact_circuit_breaker;
 
@@ -2156,7 +2168,7 @@ impl AgentRuntime {
             let mut notification = OutboundMessage::new(
                 ctx.channel,
                 ctx.chat_id,
-                "🔄 对话历史较长，正在压缩以保持性能..."
+                "🔄 对话历史较长，正在压缩以保持性能...",
             );
             if let Some(aid) = ctx.account_id {
                 notification.account_id = Some(aid.to_string());
@@ -2165,19 +2177,25 @@ impl AgentRuntime {
         }
 
         // ========== 3. 记录压缩开始事件 ==========
-        let threshold = self.memory_system.as_ref()
+        let threshold = self
+            .memory_system
+            .as_ref()
             .map(|m| m.config().compact_threshold)
             .unwrap_or(0.8);
-        crate::memory_event!(layer4, compact_started, pre_compact_tokens, threshold, is_auto);
-
-        info!(
+        crate::memory_event!(
+            layer4,
+            compact_started,
             pre_compact_tokens,
-            "[layer4] Starting full compact"
+            threshold,
+            is_auto
         );
+
+        info!(pre_compact_tokens, "[layer4] Starting full compact");
 
         // ========== 4. 生成系统提示 ==========
         let system_prompt = Arc::new(
-            "你是一个对话摘要助手。请根据对话历史生成结构化摘要，保留关键信息用于后续继续工作。".to_string()
+            "你是一个对话摘要助手。请根据对话历史生成结构化摘要，保留关键信息用于后续继续工作。"
+                .to_string(),
         );
 
         // ========== 5. 获取模型配置 ==========
@@ -2189,16 +2207,15 @@ impl AgentRuntime {
             system_prompt,
             &model,
             messages.to_vec(),
-        ).await;
+        )
+        .await;
 
         let (summary_message, cache_read_tokens, cache_creation_tokens) = match summary_result {
-            Ok(result) => {
-                (
-                    result.summary.to_markdown(),
-                    result.cache_read_tokens,
-                    result.cache_creation_tokens,
-                )
-            }
+            Ok(result) => (
+                result.summary.to_markdown(),
+                result.cache_read_tokens,
+                result.cache_creation_tokens,
+            ),
             Err(e) => {
                 let error_msg = format!("LLM compact summary generation failed: {}", e);
                 warn!(error = %e, "[layer4] Failed to generate compact summary");
@@ -2212,7 +2229,7 @@ impl AgentRuntime {
                     let mut notification = OutboundMessage::new(
                         ctx.channel,
                         ctx.chat_id,
-                        "⚠️ 压缩失败，继续使用当前历史。"
+                        "⚠️ 压缩失败，继续使用当前历史。",
                     );
                     if let Some(aid) = ctx.account_id {
                         notification.account_id = Some(aid.to_string());
@@ -2226,15 +2243,14 @@ impl AgentRuntime {
 
         // ========== 7. 收集恢复信息 ==========
         let recovery_message = if let Some(memory_system) = self.memory_system.as_ref() {
-            let session_memory_path = get_session_memory_path(
-                memory_system.workspace_dir(),
-                memory_system.session_id(),
-            );
-            let session_memory_content = if tokio::fs::try_exists(&session_memory_path).await.ok() == Some(true) {
-                tokio::fs::read_to_string(&session_memory_path).await.ok()
-            } else {
-                None
-            };
+            let session_memory_path =
+                get_session_memory_path(memory_system.workspace_dir(), memory_system.session_id());
+            let session_memory_content =
+                if tokio::fs::try_exists(&session_memory_path).await.ok() == Some(true) {
+                    tokio::fs::read_to_string(&session_memory_path).await.ok()
+                } else {
+                    None
+                };
 
             memory_system.generate_compact_recovery(session_memory_content.as_deref())
         } else {
@@ -2250,7 +2266,8 @@ impl AgentRuntime {
         // ========== 9. 记录成功事件 ==========
         // 使用来自 LLM API 响应的真实 cache usage 数据
         crate::memory_event!(
-            layer4, compact_completed,
+            layer4,
+            compact_completed,
             pre_compact_tokens,
             post_compact_tokens,
             cache_read_tokens,
@@ -2273,22 +2290,18 @@ impl AgentRuntime {
         // ========== 10. 发送压缩成功通知 ==========
         if let (Some(ref tx), Some(ref ctx)) = (&self.outbound_tx, &compact_ctx) {
             let notification_content = if pre_compact_tokens > 0 {
-                let compression_ratio = (pre_compact_tokens - post_compact_tokens)
-                    as f64 / pre_compact_tokens as f64 * 100.0;
+                let compression_ratio = (pre_compact_tokens - post_compact_tokens) as f64
+                    / pre_compact_tokens as f64
+                    * 100.0;
                 format!(
                     "✅ 已压缩对话历史，保留关键信息。\n📊 Token: {} → {} (压缩 {:.0}%)",
-                    pre_compact_tokens,
-                    post_compact_tokens,
-                    compression_ratio
+                    pre_compact_tokens, post_compact_tokens, compression_ratio
                 )
             } else {
                 "✅ 压缩完成（无历史内容需要压缩）".to_string()
             };
-            let mut notification = OutboundMessage::new(
-                ctx.channel,
-                ctx.chat_id,
-                &notification_content
-            );
+            let mut notification =
+                OutboundMessage::new(ctx.channel, ctx.chat_id, &notification_content);
             if let Some(aid) = ctx.account_id {
                 notification.account_id = Some(aid.to_string());
             }
@@ -2337,12 +2350,7 @@ impl AgentRuntime {
         active_skill_dir: Option<PathBuf>,
     ) -> Result<PromptSkillLoopOutput> {
         let allowed_tool_names = tool_names.iter().cloned().collect::<HashSet<_>>();
-        let max_iterations = self
-            .config
-            .agents
-            .defaults
-            .max_tool_iterations
-            .clamp(1, 30);
+        let max_iterations = self.config.agents.defaults.max_tool_iterations.clamp(1, 30);
         let tools_max_iterations = self
             .config
             .agents
@@ -2621,13 +2629,7 @@ impl AgentRuntime {
 
         let allowed_tools = self.resolved_skill_tool_names(&prompt_skill);
         let (final_response, trace_messages, session_metadata) = self
-            .run_prompt_skill_for_session(
-                &prompt_skill,
-                msg,
-                history,
-                session_key,
-                &allowed_tools,
-            )
+            .run_prompt_skill_for_session(&prompt_skill, msg, history, session_key, &allowed_tools)
             .await?;
 
         Ok((
@@ -2836,89 +2838,82 @@ impl AgentRuntime {
                         .await;
 
                         match recv_result {
-                            Ok(Some(chunk)) => {
-                                match chunk {
-                                    StreamChunk::TextDelta { delta } => {
-                                        accumulated_content.push_str(&delta);
-                                        emitted_text_delta = true;
-                                        if let Some(ref event_tx) = self.event_tx {
-                                            let event = serde_json::json!({
-                                                "type": "token",
-                                                "agent_id": self.agent_id.clone().unwrap_or_else(|| "default".to_string()),
-                                                "chat_id": msg.chat_id.clone(),
-                                                "delta": delta,
-                                            });
-                                            let _ = event_tx.send(event.to_string());
-                                        }
-                                    }
-                                    StreamChunk::ReasoningDelta { delta } => {
-                                        accumulated_reasoning.push_str(&delta);
-                                        if let Some(ref event_tx) = self.event_tx {
-                                            let event = serde_json::json!({
-                                                "type": "thinking",
-                                                "agent_id": self.agent_id.clone().unwrap_or_else(|| "default".to_string()),
-                                                "chat_id": msg.chat_id.clone(),
-                                                "content": delta,
-                                            });
-                                            let _ = event_tx.send(event.to_string());
-                                        }
-                                    }
-                                    StreamChunk::ToolCallStart { index: _, id, name } => {
-                                        let acc = tool_call_accumulators
-                                            .entry(id.clone())
-                                            .or_default();
-                                        acc.id = id.clone();
-                                        acc.name = name.clone();
-                                    }
-                                    StreamChunk::ToolCallDelta {
-                                        index: _,
-                                        id,
-                                        delta,
-                                    } => {
-                                        if let Some(acc) = tool_call_accumulators.get_mut(&id) {
-                                            acc.arguments.push_str(&delta);
-                                        }
-                                    }
-                                    StreamChunk::Done { response } => {
-                                        let final_tool_calls =
-                                            if !tool_call_accumulators.is_empty() {
-                                                tool_call_accumulators
-                                                    .drain()
-                                                    .map(|(_, acc)| acc.to_tool_call_request())
-                                                    .collect()
-                                            } else {
-                                                response.tool_calls.clone()
-                                            };
-
-                                        let final_content = if !accumulated_content.is_empty() {
-                                            Some(accumulated_content.clone())
-                                        } else {
-                                            response.content.clone()
-                                        };
-
-                                        let final_reasoning =
-                                            if !accumulated_reasoning.is_empty() {
-                                                Some(accumulated_reasoning.clone())
-                                            } else {
-                                                response.reasoning_content.clone()
-                                            };
-
-                                        return Ok(LLMResponse {
-                                            content: final_content,
-                                            reasoning_content: final_reasoning,
-                                            tool_calls: final_tool_calls,
-                                            finish_reason: response.finish_reason.clone(),
-                                            usage: response.usage.clone(),
+                            Ok(Some(chunk)) => match chunk {
+                                StreamChunk::TextDelta { delta } => {
+                                    accumulated_content.push_str(&delta);
+                                    emitted_text_delta = true;
+                                    if let Some(ref event_tx) = self.event_tx {
+                                        let event = serde_json::json!({
+                                            "type": "token",
+                                            "agent_id": self.agent_id.clone().unwrap_or_else(|| "default".to_string()),
+                                            "chat_id": msg.chat_id.clone(),
+                                            "delta": delta,
                                         });
-                                    }
-                                    StreamChunk::Error { message } => {
-                                        warn!(error = %message, "Stream error");
-                                        stream_error =
-                                            Some(blockcell_core::Error::Provider(message));
-                                        break;
+                                        let _ = event_tx.send(event.to_string());
                                     }
                                 }
-                            }
+                                StreamChunk::ReasoningDelta { delta } => {
+                                    accumulated_reasoning.push_str(&delta);
+                                    if let Some(ref event_tx) = self.event_tx {
+                                        let event = serde_json::json!({
+                                            "type": "thinking",
+                                            "agent_id": self.agent_id.clone().unwrap_or_else(|| "default".to_string()),
+                                            "chat_id": msg.chat_id.clone(),
+                                            "content": delta,
+                                        });
+                                        let _ = event_tx.send(event.to_string());
+                                    }
+                                }
+                                StreamChunk::ToolCallStart { index: _, id, name } => {
+                                    let acc = tool_call_accumulators.entry(id.clone()).or_default();
+                                    acc.id = id.clone();
+                                    acc.name = name.clone();
+                                }
+                                StreamChunk::ToolCallDelta {
+                                    index: _,
+                                    id,
+                                    delta,
+                                } => {
+                                    if let Some(acc) = tool_call_accumulators.get_mut(&id) {
+                                        acc.arguments.push_str(&delta);
+                                    }
+                                }
+                                StreamChunk::Done { response } => {
+                                    let final_tool_calls = if !tool_call_accumulators.is_empty() {
+                                        tool_call_accumulators
+                                            .drain()
+                                            .map(|(_, acc)| acc.to_tool_call_request())
+                                            .collect()
+                                    } else {
+                                        response.tool_calls.clone()
+                                    };
+
+                                    let final_content = if !accumulated_content.is_empty() {
+                                        Some(accumulated_content.clone())
+                                    } else {
+                                        response.content.clone()
+                                    };
+
+                                    let final_reasoning = if !accumulated_reasoning.is_empty() {
+                                        Some(accumulated_reasoning.clone())
+                                    } else {
+                                        response.reasoning_content.clone()
+                                    };
+
+                                    return Ok(LLMResponse {
+                                        content: final_content,
+                                        reasoning_content: final_reasoning,
+                                        tool_calls: final_tool_calls,
+                                        finish_reason: response.finish_reason.clone(),
+                                        usage: response.usage.clone(),
+                                    });
+                                }
+                                StreamChunk::Error { message } => {
+                                    warn!(error = %message, "Stream error");
+                                    stream_error = Some(blockcell_core::Error::Provider(message));
+                                    break;
+                                }
+                            },
                             Ok(None) => {
                                 break;
                             }
@@ -3174,8 +3169,10 @@ impl AgentRuntime {
                 if msg.channel == "ws" {
                     if let Some(ref event_tx) = self.event_tx {
                         let notification_content = if result.pre_compact_tokens > 0 {
-                            let compression_ratio = (result.pre_compact_tokens - result.post_compact_tokens)
-                                as f64 / result.pre_compact_tokens as f64 * 100.0;
+                            let compression_ratio =
+                                (result.pre_compact_tokens - result.post_compact_tokens) as f64
+                                    / result.pre_compact_tokens as f64
+                                    * 100.0;
                             format!(
                                 "✅ 已压缩对话历史，保留关键信息。\n📊 Token: {} → {} (压缩 {:.0}%)",
                                 result.pre_compact_tokens,
@@ -3228,11 +3225,8 @@ impl AgentRuntime {
                 } else if let Some(ref tx) = &self.outbound_tx {
                     let error_msg = result.error.as_deref().unwrap_or("压缩失败，请稍后重试。");
                     let notification_content = format!("⚠️ 压缩失败: {}", error_msg);
-                    let mut notification = OutboundMessage::new(
-                        &msg.channel,
-                        &msg.chat_id,
-                        &notification_content
-                    );
+                    let mut notification =
+                        OutboundMessage::new(&msg.channel, &msg.chat_id, &notification_content);
                     if let Some(aid) = msg.account_id.as_deref() {
                         notification.account_id = Some(aid.to_string());
                     }
@@ -3361,7 +3355,10 @@ impl AgentRuntime {
             }
         }
 
-        if !skill_cards.is_empty() && !tool_names.iter().any(|name| name == ACTIVATE_SKILL_TOOL_NAME)
+        if !skill_cards.is_empty()
+            && !tool_names
+                .iter()
+                .any(|name| name == ACTIVATE_SKILL_TOOL_NAME)
         {
             tool_names.push(ACTIVATE_SKILL_TOOL_NAME.to_string());
         }
@@ -3489,7 +3486,8 @@ impl AgentRuntime {
         // Layer 1: 消息级别预算检查
         // 如果工具结果总和超过预算，持久化最大的结果
         if let Some(memory_system) = self.memory_system.as_ref() {
-            let candidates = crate::response_cache::collect_tool_result_candidates(&current_messages);
+            let candidates =
+                crate::response_cache::collect_tool_result_candidates(&current_messages);
             if !candidates.is_empty() {
                 let total_size: usize = candidates.iter().map(|c| c.size).sum();
                 let budget = crate::response_cache::MAX_TOOL_RESULTS_PER_MESSAGE_CHARS;
@@ -3512,7 +3510,8 @@ impl AgentRuntime {
                         budget,
                         &self.paths.base,
                         &session_key,
-                    ).await;
+                    )
+                    .await;
 
                     // 更新状态
                     if let Some(ms) = self.memory_system.as_mut() {
@@ -3528,7 +3527,9 @@ impl AgentRuntime {
             let estimated_tokens = estimate_messages_tokens(&current_messages);
             // Update Layer 4 token usage metrics
             if let Some(memory_system) = self.memory_system.as_ref() {
-                crate::memory_event!(layer4, token_usage,
+                crate::memory_event!(
+                    layer4,
+                    token_usage,
                     estimated_tokens,
                     memory_system.config().token_budget,
                     memory_system.config().compact_threshold
@@ -3546,17 +3547,18 @@ impl AgentRuntime {
                         chat_id: &msg.chat_id,
                         account_id: msg.account_id.as_deref(),
                     };
-                    let compact_result = self.execute_layer4_compact(
-                        &current_messages,
-                        &session_key,
-                        Some(compact_ctx),
-                        true, // is_auto for automatic compact
-                    ).await;
+                    let compact_result = self
+                        .execute_layer4_compact(
+                            &current_messages,
+                            &session_key,
+                            Some(compact_ctx),
+                            true, // is_auto for automatic compact
+                        )
+                        .await;
                     if compact_result.success {
                         current_messages.clear();
-                        current_messages.push(ChatMessage::system(
-                            &compact_result.to_compact_message()
-                        ));
+                        current_messages
+                            .push(ChatMessage::system(&compact_result.to_compact_message()));
                         current_messages.push(ChatMessage::user("请继续当前任务。"));
 
                         info!(
@@ -3732,7 +3734,12 @@ impl AgentRuntime {
 
                     let skill_history_seed = history[..history.len().saturating_sub(1)].to_vec();
                     let (skill_result, updated_metadata, allowed_tools) = self
-                        .run_skill_for_turn(&skill_ctx, &msg, &skill_history_seed, &persist_session_key)
+                        .run_skill_for_turn(
+                            &skill_ctx,
+                            &msg,
+                            &skill_history_seed,
+                            &persist_session_key,
+                        )
                         .await?;
                     session_metadata = updated_metadata;
                     record_active_skill_name(&mut session_metadata, &skill_ctx.name);
@@ -4015,7 +4022,9 @@ impl AgentRuntime {
                 let estimated_tokens = estimate_messages_tokens(&current_messages);
                 // Update Layer 4 token usage metrics
                 if let Some(memory_system) = self.memory_system.as_ref() {
-                    crate::memory_event!(layer4, token_usage,
+                    crate::memory_event!(
+                        layer4,
+                        token_usage,
                         estimated_tokens,
                         memory_system.config().token_budget,
                         memory_system.config().compact_threshold
@@ -4034,18 +4043,19 @@ impl AgentRuntime {
                             chat_id: &msg.chat_id,
                             account_id: msg.account_id.as_deref(),
                         };
-                        let compact_result = self.execute_layer4_compact(
-                            &current_messages,
-                            &session_key,
-                            Some(compact_ctx),
-                            true, // is_auto for automatic compact
-                        ).await;
+                        let compact_result = self
+                            .execute_layer4_compact(
+                                &current_messages,
+                                &session_key,
+                                Some(compact_ctx),
+                                true, // is_auto for automatic compact
+                            )
+                            .await;
                         if compact_result.success {
                             // 替换消息历史为压缩后的内容
                             current_messages.clear();
-                            current_messages.push(ChatMessage::system(
-                                &compact_result.to_compact_message()
-                            ));
+                            current_messages
+                                .push(ChatMessage::system(&compact_result.to_compact_message()));
                             // 添加当前用户消息作为继续点
                             current_messages.push(ChatMessage::user("请继续当前任务。"));
 
@@ -4158,7 +4168,9 @@ impl AgentRuntime {
         // 使用 tokio::spawn 非阻塞执行，不延迟用户响应
         // 预先获取共享引用（避免借用冲突）
         let reload_flag = self.memory_injector_reload_flag();
-        let cursor_reload_flag = self.memory_system.as_ref()
+        let cursor_reload_flag = self
+            .memory_system
+            .as_ref()
             .map(|ms| ms.cursor_reload_flag());
 
         if let Some(memory_system) = self.memory_system.as_mut() {
@@ -4191,7 +4203,9 @@ impl AgentRuntime {
 
                         let current_memory = tokio::fs::read_to_string(&memory_path)
                             .await
-                            .unwrap_or_else(|_| crate::session_memory::DEFAULT_SESSION_MEMORY_TEMPLATE.to_string());
+                            .unwrap_or_else(|_| {
+                                crate::session_memory::DEFAULT_SESSION_MEMORY_TEMPLATE.to_string()
+                            });
 
                         let result = crate::session_memory::extract_session_memory(
                             provider_pool,
@@ -4201,11 +4215,14 @@ impl AgentRuntime {
                             &memory_path,
                             &current_memory,
                             crate::session_memory::DEFAULT_SESSION_MEMORY_TEMPLATE,
-                        ).await;
+                        )
+                        .await;
 
                         match result {
                             Ok(_) => info!("[layer3] Session Memory extraction completed"),
-                            Err(e) => warn!(error = %e, "[layer3] Session Memory extraction failed"),
+                            Err(e) => {
+                                warn!(error = %e, "[layer3] Session Memory extraction failed")
+                            }
                         }
                     });
 
@@ -4226,9 +4243,9 @@ impl AgentRuntime {
                     let config_dir = memory_system.config_dir().to_path_buf();
                     let model = self.config.agents.defaults.model.clone();
                     // 使用预先获取的 cursor_reload_flag
-                    let cursor_reload_flag = cursor_reload_flag.clone().unwrap_or_else(|| {
-                        Arc::new(std::sync::atomic::AtomicBool::new(false))
-                    });
+                    let cursor_reload_flag = cursor_reload_flag
+                        .clone()
+                        .unwrap_or_else(|| Arc::new(std::sync::atomic::AtomicBool::new(false)));
 
                     // 为每种记忆类型创建独立的异步任务
                     for memory_type in types {
@@ -4252,7 +4269,11 @@ impl AgentRuntime {
 
                         let handle = tokio::spawn(async move {
                             // 创建提取器（会加载持久化的游标状态）
-                            let mut extractor = match crate::auto_memory::AutoMemoryExtractor::new(&config_dir_for_type).await {
+                            let mut extractor = match crate::auto_memory::AutoMemoryExtractor::new(
+                                &config_dir_for_type,
+                            )
+                            .await
+                            {
                                 Ok(e) => e,
                                 Err(e) => {
                                     warn!(error = %e, "[layer5] Failed to create AutoMemoryExtractor");
@@ -4288,9 +4309,11 @@ impl AgentRuntime {
                                     "[layer5] Auto Memory extraction completed"
                                 );
                                 // 标记需要刷新缓存
-                                reload_flag_for_type.store(true, std::sync::atomic::Ordering::Relaxed);
+                                reload_flag_for_type
+                                    .store(true, std::sync::atomic::Ordering::Relaxed);
                                 // 标记需要重新加载游标状态（通知主线程）
-                                cursor_reload_flag_for_type.store(true, std::sync::atomic::Ordering::Relaxed);
+                                cursor_reload_flag_for_type
+                                    .store(true, std::sync::atomic::Ordering::Relaxed);
                             } else {
                                 warn!(
                                     memory_type = memory_type.name(),
@@ -4321,18 +4344,18 @@ impl AgentRuntime {
                         chat_id: &msg.chat_id,
                         account_id: msg.account_id.as_deref(),
                     };
-                    let compact_result = self.execute_layer4_compact(
-                        &history,
-                        &session_key,
-                        Some(compact_ctx),
-                        true, // is_auto for automatic compact
-                    ).await;
+                    let compact_result = self
+                        .execute_layer4_compact(
+                            &history,
+                            &session_key,
+                            Some(compact_ctx),
+                            true, // is_auto for automatic compact
+                        )
+                        .await;
                     if compact_result.success {
                         // 压缩成功，替换历史
                         history.clear();
-                        history.push(ChatMessage::system(
-                            &compact_result.to_compact_message()
-                        ));
+                        history.push(ChatMessage::system(&compact_result.to_compact_message()));
                         history.push(ChatMessage::user("请继续当前任务。"));
 
                         info!(
@@ -4360,7 +4383,10 @@ impl AgentRuntime {
             if let Some(ms) = self.memory_system.as_mut() {
                 let cleaned = ms.cleanup_completed_tasks();
                 if cleaned > 0 {
-                    debug!(cleaned_count = cleaned, "Cleaned up completed background tasks");
+                    debug!(
+                        cleaned_count = cleaned,
+                        "Cleaned up completed background tasks"
+                    );
                 }
             }
         }
@@ -4768,7 +4794,11 @@ impl AgentRuntime {
             sender_id: Some(msg.sender_id.clone()),
             chat_id: msg.chat_id.clone(),
             config: self.config.clone(),
-            permissions: self.build_tool_permissions(&msg.channel, Some(&msg.sender_id), &msg.chat_id),
+            permissions: self.build_tool_permissions(
+                &msg.channel,
+                Some(&msg.sender_id),
+                &msg.chat_id,
+            ),
             task_manager: Some(tm_handle),
             memory_store: self.memory_store.clone(),
             outbound_tx: self.outbound_tx.clone(),
@@ -4777,7 +4807,9 @@ impl AgentRuntime {
             core_evolution: self.core_evolution.clone(),
             event_emitter: Some(self.system_event_emitter.clone()),
             channel_contacts_file: Some(self.paths.channel_contacts_file()),
-            response_cache: Some(Arc::new(self.response_cache.clone()) as blockcell_tools::ResponseCacheHandle),
+            response_cache: Some(
+                Arc::new(self.response_cache.clone()) as blockcell_tools::ResponseCacheHandle
+            ),
         };
 
         // Emit tool_call_start event to WebSocket clients
@@ -4919,31 +4951,38 @@ impl AgentRuntime {
         // Layer 4: Track file reads for Post-Compact recovery
         // 追踪多种文件访问工具的结果，用于 Compact 后恢复
         if !is_error {
-            let file_content_to_track: Option<(std::path::PathBuf, &str)> = match tool_call.name.as_str() {
-                "read_file" => {
-                    // read_file: 直接追踪文件内容
-                    if let Some(path_str) = tool_call.arguments.get("path").and_then(|v| v.as_str()) {
-                        Some((self.resolve_path(path_str), &result_str))
-                    } else {
-                        None
+            let file_content_to_track: Option<(std::path::PathBuf, &str)> =
+                match tool_call.name.as_str() {
+                    "read_file" => {
+                        // read_file: 直接追踪文件内容
+                        if let Some(path_str) =
+                            tool_call.arguments.get("path").and_then(|v| v.as_str())
+                        {
+                            Some((self.resolve_path(path_str), &result_str))
+                        } else {
+                            None
+                        }
                     }
-                }
-                "grep" | "rg" => {
-                    // grep/rg: 追踪搜索路径和匹配结果
-                    let path = tool_call.arguments.get("path")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(".");
-                    Some((self.resolve_path(path), &result_str))
-                }
-                "glob" => {
-                    // glob: 追踪匹配的文件列表
-                    let path = tool_call.arguments.get("path")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(".");
-                    Some((self.resolve_path(path), &result_str))
-                }
-                _ => None,
-            };
+                    "grep" | "rg" => {
+                        // grep/rg: 追踪搜索路径和匹配结果
+                        let path = tool_call
+                            .arguments
+                            .get("path")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(".");
+                        Some((self.resolve_path(path), &result_str))
+                    }
+                    "glob" => {
+                        // glob: 追踪匹配的文件列表
+                        let path = tool_call
+                            .arguments
+                            .get("path")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(".");
+                        Some((self.resolve_path(path), &result_str))
+                    }
+                    _ => None,
+                };
 
             if let Some((path, content)) = file_content_to_track {
                 if let Some(memory_system) = self.memory_system.as_mut() {
@@ -5037,7 +5076,9 @@ impl AgentRuntime {
             .await?;
 
         let mut final_response = prompt_result.final_response;
-        if let Some(last_local_exec_tool_name) = Self::last_local_exec_tool_name(&prompt_result.trace_messages) {
+        if let Some(last_local_exec_tool_name) =
+            Self::last_local_exec_tool_name(&prompt_result.trace_messages)
+        {
             if let Some(summary_bundle) = self
                 .context_builder
                 .skill_manager()
@@ -5072,10 +5113,8 @@ impl AgentRuntime {
             }
         }
 
-        final_response = apply_skill_fallback_response(
-            final_response,
-            active_skill.fallback_message.as_deref(),
-        );
+        final_response =
+            apply_skill_fallback_response(final_response, active_skill.fallback_message.as_deref());
 
         Ok((
             final_response,
@@ -6102,10 +6141,7 @@ mod tests {
             messages: &[ChatMessage],
             _tools: &[serde_json::Value],
         ) -> blockcell_core::Result<LLMResponse> {
-            let system_text = messages
-                .first()
-                .map(chat_message_text)
-                .unwrap_or_default();
+            let system_text = messages.first().map(chat_message_text).unwrap_or_default();
             let user_text = messages
                 .iter()
                 .rev()
@@ -6143,7 +6179,13 @@ mod tests {
                 let stdout = latest_tool_text
                     .as_deref()
                     .and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
-                    .and_then(|value| value.get("stdout").and_then(|value| value.as_str()).map(str::trim).map(str::to_string))
+                    .and_then(|value| {
+                        value
+                            .get("stdout")
+                            .and_then(|value| value.as_str())
+                            .map(str::trim)
+                            .map(str::to_string)
+                    })
                     .unwrap_or_default();
                 LLMResponse {
                     content: Some(format!("local exec result: {}", stdout)),
@@ -6185,7 +6227,13 @@ mod tests {
                 let stdout = latest_tool_text
                     .as_deref()
                     .and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
-                    .and_then(|value| value.get("stdout").and_then(|value| value.as_str()).map(str::trim).map(str::to_string))
+                    .and_then(|value| {
+                        value
+                            .get("stdout")
+                            .and_then(|value| value.as_str())
+                            .map(str::trim)
+                            .map(str::to_string)
+                    })
                     .unwrap_or_default();
                 LLMResponse {
                     content: Some(format!("local exec result: {}", stdout)),
@@ -6194,7 +6242,8 @@ mod tests {
                     finish_reason: "stop".to_string(),
                     usage: serde_json::Value::Null,
                 }
-            } else if user_text.contains("技能说明摘要") && user_text.contains("执行结果") {
+            } else if user_text.contains("技能说明摘要") && user_text.contains("执行结果")
+            {
                 let execution_result = user_text
                     .split("执行结果：")
                     .nth(1)
@@ -6322,10 +6371,7 @@ mod tests {
         ) -> blockcell_core::Result<LLMResponse> {
             self.calls.fetch_add(1, Ordering::SeqCst);
 
-            let system_text = messages
-                .first()
-                .map(chat_message_text)
-                .unwrap_or_default();
+            let system_text = messages.first().map(chat_message_text).unwrap_or_default();
             let user_text = messages
                 .iter()
                 .rev()
@@ -6418,7 +6464,8 @@ mod tests {
                     finish_reason: "stop".to_string(),
                     usage: serde_json::Value::Null,
                 }
-            } else if user_text.contains("技能说明摘要") && user_text.contains("执行结果") {
+            } else if user_text.contains("技能说明摘要") && user_text.contains("执行结果")
+            {
                 let execution_result = user_text
                     .split("执行结果：")
                     .nth(1)
@@ -6437,7 +6484,10 @@ mod tests {
                     .as_deref()
                     .and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
                     .and_then(|value| {
-                        value.get("path").and_then(|value| value.as_str()).map(str::to_string)
+                        value
+                            .get("path")
+                            .and_then(|value| value.as_str())
+                            .map(str::to_string)
                     })
                     .unwrap_or_else(|| ".".to_string());
                 LLMResponse {
@@ -6489,7 +6539,6 @@ mod tests {
             Ok(response)
         }
     }
-
 
     #[test]
     fn test_core_tools_contains_toggle_manage() {
@@ -6841,7 +6890,9 @@ mod tests {
 
         let prompt = messages[0].content.as_str().unwrap_or_default();
         assert!(prompt.contains("## Installed Skills"));
-        assert!(prompt.contains("Use `activate_skill` when one installed skill is a better fit than general tools."));
+        assert!(prompt.contains(
+            "Use `activate_skill` when one installed skill is a better fit than general tools."
+        ));
         assert!(prompt.contains("If a skill card shows local execution entries, you may use `exec_local` only for those relative paths and only inside the active skill scope."));
         assert!(prompt.contains("Recent active skill: `local_demo`"));
         assert!(prompt.contains("布局: PromptTool + LocalScript"));
@@ -6950,9 +7001,9 @@ description: prompt demo
     #[tokio::test]
     async fn test_prompt_skill_can_use_exec_skill_script_inside_skill_scope() {
         let mut runtime = test_runtime();
-        runtime
-            .tool_registry
-            .register(Arc::new(blockcell_tools::exec_skill_script::ExecSkillScriptTool));
+        runtime.tool_registry.register(Arc::new(
+            blockcell_tools::exec_skill_script::ExecSkillScriptTool,
+        ));
         let skill_dir = runtime.paths.skills_dir().join("local_demo");
         let scripts_dir = skill_dir.join("scripts");
         std::fs::create_dir_all(&scripts_dir).expect("create scripts dir");
@@ -6976,8 +7027,11 @@ description: local demo
 "#,
         )
         .expect("write skill md");
-        std::fs::write(scripts_dir.join("hello.sh"), "#!/bin/sh\necho local-skill-$1\n")
-            .expect("write script");
+        std::fs::write(
+            scripts_dir.join("hello.sh"),
+            "#!/bin/sh\necho local-skill-$1\n",
+        )
+        .expect("write script");
         runtime.context_builder.reload_skills();
 
         let msg = InboundMessage {
@@ -6999,7 +7053,11 @@ description: local demo
             .session_store
             .load(&session_key)
             .expect("load session history");
-        assert!(result.starts_with("summary:"), "unexpected skill result: {}", result);
+        assert!(
+            result.starts_with("summary:"),
+            "unexpected skill result: {}",
+            result
+        );
         assert!(
             result.contains("local-skill-skill"),
             "unexpected skill result: {}; history: {:?}",
@@ -7019,9 +7077,9 @@ description: local demo
     #[test]
     fn test_resolved_skill_tool_names_include_exec_skill_script_for_script_capable_skill() {
         let mut runtime = test_runtime();
-        runtime
-            .tool_registry
-            .register(Arc::new(blockcell_tools::exec_skill_script::ExecSkillScriptTool));
+        runtime.tool_registry.register(Arc::new(
+            blockcell_tools::exec_skill_script::ExecSkillScriptTool,
+        ));
         runtime
             .tool_registry
             .register(Arc::new(blockcell_tools::exec_local::ExecLocalTool));
@@ -7069,21 +7127,23 @@ description: script demo
         let mut runtime = test_runtime();
         let msg = test_main_session_inbound("cli", "chat-script-path");
 
-        assert!(runtime
-            .check_path_permission(
-                "exec_skill_script",
-                &serde_json::json!({"path": "scripts/hello.sh"}),
-                &msg,
-            )
-            .await);
+        assert!(
+            runtime
+                .check_path_permission(
+                    "exec_skill_script",
+                    &serde_json::json!({"path": "scripts/hello.sh"}),
+                    &msg,
+                )
+                .await
+        );
     }
 
     #[tokio::test]
     async fn test_skill_executor_uses_manual_not_file_type_to_choose_skill_script() {
         let mut runtime = test_runtime();
-        runtime
-            .tool_registry
-            .register(Arc::new(blockcell_tools::exec_skill_script::ExecSkillScriptTool));
+        runtime.tool_registry.register(Arc::new(
+            blockcell_tools::exec_skill_script::ExecSkillScriptTool,
+        ));
         let skill_dir = runtime.paths.skills_dir().join("legacy_script_demo");
         let scripts_dir = skill_dir.join("scripts");
         std::fs::create_dir_all(&scripts_dir).expect("create scripts dir");
@@ -7107,10 +7167,16 @@ description: legacy script demo
 "#,
         )
         .expect("write skill md");
-        std::fs::write(skill_dir.join("SKILL.py"), "print('legacy path should not run')\n")
-            .expect("write legacy py");
-        std::fs::write(scripts_dir.join("hello.sh"), "#!/bin/sh\necho local-skill-$1\n")
-            .expect("write script");
+        std::fs::write(
+            skill_dir.join("SKILL.py"),
+            "print('legacy path should not run')\n",
+        )
+        .expect("write legacy py");
+        std::fs::write(
+            scripts_dir.join("hello.sh"),
+            "#!/bin/sh\necho local-skill-$1\n",
+        )
+        .expect("write script");
         runtime.context_builder.reload_skills();
 
         let msg = InboundMessage {
@@ -7151,9 +7217,9 @@ description: legacy script demo
     #[tokio::test]
     async fn test_cli_style_skill_runs_via_exec_skill_script() {
         let mut runtime = test_runtime();
-        runtime
-            .tool_registry
-            .register(Arc::new(blockcell_tools::exec_skill_script::ExecSkillScriptTool));
+        runtime.tool_registry.register(Arc::new(
+            blockcell_tools::exec_skill_script::ExecSkillScriptTool,
+        ));
         let skill_dir = runtime.paths.skills_dir().join("cli_demo");
         let bin_dir = skill_dir.join("bin");
         std::fs::create_dir_all(&bin_dir).expect("create bin dir");
@@ -7195,7 +7261,11 @@ description: cli demo
         };
 
         let result = runtime.process_message(msg).await.expect("process message");
-        assert!(result.contains("local-cli-demo"), "unexpected cli result: {}", result);
+        assert!(
+            result.contains("local-cli-demo"),
+            "unexpected cli result: {}",
+            result
+        );
     }
 
     #[tokio::test]
@@ -7227,8 +7297,11 @@ description: compat local demo
 "#,
         )
         .expect("write skill md");
-        std::fs::write(scripts_dir.join("hello.sh"), "#!/bin/sh\necho local-skill-$1\n")
-            .expect("write script");
+        std::fs::write(
+            scripts_dir.join("hello.sh"),
+            "#!/bin/sh\necho local-skill-$1\n",
+        )
+        .expect("write script");
         runtime.context_builder.reload_skills();
 
         let msg = InboundMessage {
@@ -7250,7 +7323,11 @@ description: compat local demo
             .session_store
             .load(&session_key)
             .expect("load session history");
-        assert!(result.starts_with("summary:"), "unexpected skill result: {}", result);
+        assert!(
+            result.starts_with("summary:"),
+            "unexpected skill result: {}",
+            result
+        );
         assert!(
             result.contains("local-skill-skill"),
             "unexpected skill result: {}; history: {:?}",
@@ -7296,9 +7373,9 @@ description: compat local demo
             calls: AtomicUsize::new(0),
         });
         let mut runtime = test_runtime_with_provider(provider.clone());
-        runtime
-            .tool_registry
-            .register(Arc::new(blockcell_tools::exec_skill_script::ExecSkillScriptTool));
+        runtime.tool_registry.register(Arc::new(
+            blockcell_tools::exec_skill_script::ExecSkillScriptTool,
+        ));
         let skill_dir = runtime.paths.skills_dir().join("local_demo");
         let scripts_dir = skill_dir.join("scripts");
         std::fs::create_dir_all(&scripts_dir).expect("create scripts dir");
@@ -7322,8 +7399,11 @@ description: local demo
 "#,
         )
         .expect("write skill md");
-        std::fs::write(scripts_dir.join("hello.sh"), "#!/bin/sh\necho local-skill-$1\n")
-            .expect("write script");
+        std::fs::write(
+            scripts_dir.join("hello.sh"),
+            "#!/bin/sh\necho local-skill-$1\n",
+        )
+        .expect("write script");
         runtime.context_builder.reload_skills();
 
         let msg = InboundMessage {
@@ -7353,7 +7433,11 @@ description: local demo
             message
                 .tool_calls
                 .as_ref()
-                .map(|calls| calls.iter().any(|call| call.name == ACTIVATE_SKILL_TOOL_NAME))
+                .map(|calls| {
+                    calls
+                        .iter()
+                        .any(|call| call.name == ACTIVATE_SKILL_TOOL_NAME)
+                })
                 .unwrap_or(false)
         }));
         assert!(history.iter().any(|message| {
@@ -7441,15 +7525,18 @@ description: local demo
             "帮我深度分析 BTC",
             "deep_analysis",
             &["web_search".to_string()],
-            &[ChatMessage {
-                id: None,
-                role: "assistant".to_string(),
-                content: serde_json::Value::String("搜索 BTC 新闻".to_string()),
-                reasoning_content: None,
-                tool_calls: Some(vec![real_tool_call]),
-                tool_call_id: None,
-                name: None,
-            }, real_tool_result],
+            &[
+                ChatMessage {
+                    id: None,
+                    role: "assistant".to_string(),
+                    content: serde_json::Value::String("搜索 BTC 新闻".to_string()),
+                    reasoning_content: None,
+                    tool_calls: Some(vec![real_tool_call]),
+                    tool_call_id: None,
+                    name: None,
+                },
+                real_tool_result,
+            ],
             "整理后的最终回答",
         );
 
@@ -7483,7 +7570,11 @@ description: local demo
             "北京天气",
             "weather",
             "skill_invoke_python",
-            &["forecast".to_string(), "--city".to_string(), "beijing".to_string()],
+            &[
+                "forecast".to_string(),
+                "--city".to_string(),
+                "beijing".to_string(),
+            ],
             r#"{"temp":18,"condition":"sunny"}"#,
             "今天晴，最高 18 度。",
         );
@@ -7548,8 +7639,11 @@ description: local demo
         );
 
         assert_eq!(
-            continued_skill_name(&serde_json::json!({"active_skill_name":"ppt-generator"}), &history)
-                .as_deref(),
+            continued_skill_name(
+                &serde_json::json!({"active_skill_name":"ppt-generator"}),
+                &history
+            )
+            .as_deref(),
             Some("ppt-generator")
         );
         assert_eq!(
@@ -7574,10 +7668,7 @@ description: local demo
         );
         assert!(!continued.inject_prompt_md);
 
-        let other = suppress_prompt_reinjection_for_continued_skill(
-            active_skill,
-            Some("weather"),
-        );
+        let other = suppress_prompt_reinjection_for_continued_skill(active_skill, Some("weather"));
         assert!(other.inject_prompt_md);
     }
 
@@ -7600,7 +7691,10 @@ description: local demo
     #[test]
     fn test_extract_json_from_text_handles_markdown_fence() {
         let text = "```json\n{\"argv\":[\"search\",\"btc\"]}\n```";
-        assert_eq!(extract_json_from_text(text), "{\"argv\":[\"search\",\"btc\"]}");
+        assert_eq!(
+            extract_json_from_text(text),
+            "{\"argv\":[\"search\",\"btc\"]}"
+        );
     }
 
     #[tokio::test]
@@ -7695,11 +7789,8 @@ description: local demo
         provider: Arc<dyn Provider>,
         config: Config,
     ) -> AgentRuntime {
-        let provider_pool = blockcell_providers::ProviderPool::from_single_provider(
-            "test/mock",
-            "test",
-            provider,
-        );
+        let provider_pool =
+            blockcell_providers::ProviderPool::from_single_provider("test/mock", "test", provider);
 
         let mut runtime = AgentRuntime::new(
             config,

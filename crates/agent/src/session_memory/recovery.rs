@@ -2,9 +2,9 @@
 //!
 //! 提供 Post-Compact 恢复和等待提取完成的功能。
 
-use crate::token::estimate_tokens;
+use super::{EXTRACTION_STALE_THRESHOLD_MS, EXTRACTION_WAIT_TIMEOUT_MS};
 use crate::memory_event;
-use super::{EXTRACTION_WAIT_TIMEOUT_MS, EXTRACTION_STALE_THRESHOLD_MS};
+use crate::token::estimate_tokens;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::time::{timeout, Duration};
@@ -19,8 +19,7 @@ pub fn get_session_memory_dir(workspace_dir: &Path, session_id: &str) -> PathBuf
 
 /// 获取 Session Memory 文件路径
 pub fn get_session_memory_path(workspace_dir: &Path, session_id: &str) -> PathBuf {
-    get_session_memory_dir(workspace_dir, session_id)
-        .join("memory.md")
+    get_session_memory_dir(workspace_dir, session_id).join("memory.md")
 }
 
 /// 等待 Session Memory 提取完成
@@ -184,7 +183,8 @@ impl SessionMemoryRecoveryContext {
         wait_for_session_memory_extraction(&memory_path, extraction_started_at).await?;
 
         // 获取内容
-        let content = get_session_memory_content_for_compact(&memory_path, template, max_tokens).await?;
+        let content =
+            get_session_memory_content_for_compact(&memory_path, template, max_tokens).await?;
 
         // 判断是否为模板
         let is_template = content == template;

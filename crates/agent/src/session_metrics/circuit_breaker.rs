@@ -144,7 +144,8 @@ impl CircuitBreaker {
         if state == 2 {
             // Half-open -> Open (failed during recovery)
             self.state.store(1, Ordering::Relaxed);
-            self.last_failure_time_ns.store(Self::current_time_ns(), Ordering::Relaxed);
+            self.last_failure_time_ns
+                .store(Self::current_time_ns(), Ordering::Relaxed);
             tracing::warn!(
                 target: "blockcell.session_metrics.circuit_breaker",
                 "Circuit breaker returned to OPEN state after half-open failure"
@@ -152,7 +153,8 @@ impl CircuitBreaker {
         } else if failures >= self.config.max_failures {
             // Closed -> Open
             self.state.store(1, Ordering::Relaxed);
-            self.last_failure_time_ns.store(Self::current_time_ns(), Ordering::Relaxed);
+            self.last_failure_time_ns
+                .store(Self::current_time_ns(), Ordering::Relaxed);
             tracing::error!(
                 target: "blockcell.session_metrics.circuit_breaker",
                 failures = failures,
@@ -389,7 +391,10 @@ mod tests {
 
         // 验证全部进入 Open 状态
         assert_eq!(get_compact_circuit_breaker().state(), CircuitState::Open);
-        assert_eq!(get_memory_extraction_circuit_breaker().state(), CircuitState::Open);
+        assert_eq!(
+            get_memory_extraction_circuit_breaker().state(),
+            CircuitState::Open
+        );
         assert_eq!(get_dream_circuit_breaker().state(), CircuitState::Open);
 
         // 重置所有熔断器
@@ -397,7 +402,10 @@ mod tests {
 
         // 验证全部回到 Closed 状态
         assert_eq!(get_compact_circuit_breaker().state(), CircuitState::Closed);
-        assert_eq!(get_memory_extraction_circuit_breaker().state(), CircuitState::Closed);
+        assert_eq!(
+            get_memory_extraction_circuit_breaker().state(),
+            CircuitState::Closed
+        );
         assert_eq!(get_dream_circuit_breaker().state(), CircuitState::Closed);
     }
 
@@ -446,14 +454,20 @@ mod tests {
         let cb = CircuitBreaker::new(config);
 
         // Initially allows operations
-        assert!(cb.allow(), "Circuit breaker should allow operations initially");
+        assert!(
+            cb.allow(),
+            "Circuit breaker should allow operations initially"
+        );
 
         // Trigger open state with one failure
         cb.record_failure();
         assert_eq!(cb.state(), CircuitState::Open);
 
         // Verify operations are blocked
-        assert!(!cb.allow(), "Circuit breaker should block operations when Open");
+        assert!(
+            !cb.allow(),
+            "Circuit breaker should block operations when Open"
+        );
 
         // Multiple calls should all be blocked (fast rejection)
         for _ in 0..10 {
@@ -487,7 +501,10 @@ mod tests {
         thread::sleep(Duration::from_millis(100));
 
         // First call should transition to HalfOpen and allow
-        assert!(cb.allow(), "Should allow after timeout (HalfOpen transition)");
+        assert!(
+            cb.allow(),
+            "Should allow after timeout (HalfOpen transition)"
+        );
         assert_eq!(cb.state(), CircuitState::HalfOpen);
 
         // Record success -> Closed

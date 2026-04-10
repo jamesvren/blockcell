@@ -269,8 +269,8 @@ fn sanitize_skill_name(raw: &str) -> Result<String, String> {
         if c.is_ascii_alphanumeric() {
             out.push(c);
         } else if matches!(c, ' ' | '-' | '.' | '_') && !out.ends_with('_') {
-                out.push('_');
-            }
+            out.push('_');
+        }
     }
     let out = out.trim_matches('_').to_string();
     if out.is_empty() {

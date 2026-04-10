@@ -10,8 +10,8 @@ use blockcell_core::{Error, Result};
 use serde_json::{json, Value};
 
 use crate::napcat::common::{
-    build_description, build_napcat_permissions, check_channel,
-    resolve_account_id, RiskLevel, call_api, ApiRequest,
+    build_description, build_napcat_permissions, call_api, check_channel, resolve_account_id,
+    ApiRequest, RiskLevel,
 };
 use crate::{Tool, ToolContext, ToolSchema};
 
@@ -58,7 +58,8 @@ impl Tool for NapcatGetLoginInfoTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_login_info(None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -113,7 +114,8 @@ impl Tool for NapcatGetStatusTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_status(None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -168,7 +170,8 @@ impl Tool for NapcatGetVersionInfoTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_version_info(None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -224,7 +227,9 @@ impl Tool for NapcatGetStrangerInfoTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
         Ok(())
     }
@@ -237,11 +242,15 @@ impl Tool for NapcatGetStrangerInfoTool {
         check_channel(&ctx)?;
 
         let user_id = params.get("user_id").and_then(|v| v.as_str()).unwrap();
-        let no_cache = params.get("no_cache").and_then(|v| v.as_bool()).unwrap_or(false);
+        let no_cache = params
+            .get("no_cache")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_stranger_info(user_id, no_cache, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -297,7 +306,8 @@ impl Tool for NapcatGetFriendListTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_friend_list(None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -353,7 +363,9 @@ impl Tool for NapcatSendLikeTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
         Ok(())
     }
@@ -370,7 +382,8 @@ impl Tool for NapcatSendLikeTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::send_like(user_id, times, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -421,10 +434,14 @@ impl Tool for NapcatSetFriendRemarkTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
         if params.get("remark").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: remark".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: remark".into(),
+            ));
         }
         Ok(())
     }
@@ -441,7 +458,8 @@ impl Tool for NapcatSetFriendRemarkTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_friend_remark(user_id, remark, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -488,7 +506,9 @@ impl Tool for NapcatDeleteFriendTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
         Ok(())
     }
@@ -504,7 +524,8 @@ impl Tool for NapcatDeleteFriendTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::delete_friend(user_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -576,7 +597,8 @@ impl Tool for NapcatSetQQProfileTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_qq_profile(nickname, personal_note, sex, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(

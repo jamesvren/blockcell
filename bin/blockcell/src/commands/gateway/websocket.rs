@@ -1,8 +1,6 @@
 use super::*;
 use crate::commands::gateway::chat::assign_session_id;
-use crate::commands::slash_commands::{
-    CommandContext, CommandResult, SLASH_COMMAND_HANDLER,
-};
+use crate::commands::slash_commands::{CommandContext, CommandResult, SLASH_COMMAND_HANDLER};
 // ---------------------------------------------------------------------------
 // P0: WebSocket with structured protocol
 // ---------------------------------------------------------------------------
@@ -118,7 +116,8 @@ pub(super) async fn handle_ws_connection(socket: WebSocket, state: GatewayState)
                                         Ok(agent_id) => agent_id,
                                         Err(err) => {
                                             let _ = ws_broadcast.send(
-                                                WsEvent::error(client_chat_id.clone(), err).to_json(),
+                                                WsEvent::error(client_chat_id.clone(), err)
+                                                    .to_json(),
                                             );
                                             continue;
                                         }
@@ -146,11 +145,13 @@ pub(super) async fn handle_ws_connection(socket: WebSocket, state: GatewayState)
                                     state.task_manager.clone(),
                                     chat_id.clone(),
                                 )
-                                .with_clear_callback(super::create_session_clear_callback(
-                                    state.response_caches.clone(),
-                                    resolved_agent_id.clone(),
-                                    session_key,
-                                ));
+                                .with_clear_callback(
+                                    super::create_session_clear_callback(
+                                        state.response_caches.clone(),
+                                        resolved_agent_id.clone(),
+                                        session_key,
+                                    ),
+                                );
 
                                 match SLASH_COMMAND_HANDLER.try_handle(&content, &ctx).await {
                                     CommandResult::Handled(response) => {
@@ -169,29 +170,38 @@ pub(super) async fn handle_ws_connection(socket: WebSocket, state: GatewayState)
                                         // 非斜杠命令，继续正常消息处理流程
                                     }
                                     CommandResult::PermissionDenied(msg) => {
-                                        let _ = ws_broadcast.send(serde_json::json!({
-                                            "type": "error",
-                                            "chat_id": chat_id,
-                                            "message": format!("权限不足: {}", msg),
-                                        }).to_string());
+                                        let _ = ws_broadcast.send(
+                                            serde_json::json!({
+                                                "type": "error",
+                                                "chat_id": chat_id,
+                                                "message": format!("权限不足: {}", msg),
+                                            })
+                                            .to_string(),
+                                        );
                                         continue;
                                     }
                                     CommandResult::Error(e) => {
-                                        let _ = ws_broadcast.send(serde_json::json!({
-                                            "type": "error",
-                                            "chat_id": chat_id,
-                                            "message": format!("命令执行错误: {}", e),
-                                        }).to_string());
+                                        let _ = ws_broadcast.send(
+                                            serde_json::json!({
+                                                "type": "error",
+                                                "chat_id": chat_id,
+                                                "message": format!("命令执行错误: {}", e),
+                                            })
+                                            .to_string(),
+                                        );
                                         continue;
                                     }
                                     CommandResult::ExitRequested => {
                                         // /quit 和 /exit 在 WebSocket 模式下不应该到达这里
                                         // 因为渠道限制会在 try_handle 中处理
-                                        let _ = ws_broadcast.send(serde_json::json!({
-                                            "type": "error",
-                                            "chat_id": chat_id,
-                                            "message": "此命令仅在 CLI 模式可用",
-                                        }).to_string());
+                                        let _ = ws_broadcast.send(
+                                            serde_json::json!({
+                                                "type": "error",
+                                                "chat_id": chat_id,
+                                                "message": "此命令仅在 CLI 模式可用",
+                                            })
+                                            .to_string(),
+                                        );
                                         continue;
                                     }
                                     CommandResult::ForwardToRuntime {
@@ -286,9 +296,8 @@ pub(super) async fn handle_ws_connection(socket: WebSocket, state: GatewayState)
                             };
 
                             if let Err(e) = inbound_tx.send(inbound).await {
-                                let _ = ws_broadcast.send(
-                                    WsEvent::error(chat_id, format!("{}", e)).to_json(),
-                                );
+                                let _ = ws_broadcast
+                                    .send(WsEvent::error(chat_id, format!("{}", e)).to_json());
                             }
                         }
                         _ => {

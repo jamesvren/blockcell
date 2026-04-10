@@ -160,11 +160,20 @@ impl MediaType {
     /// Guess media type from file extension.
     pub fn from_extension(ext: &str) -> Self {
         let ext_lower = ext.to_lowercase();
-        if Self::Image.common_extensions().contains(&ext_lower.as_str()) {
+        if Self::Image
+            .common_extensions()
+            .contains(&ext_lower.as_str())
+        {
             MediaType::Image
-        } else if Self::Voice.common_extensions().contains(&ext_lower.as_str()) {
+        } else if Self::Voice
+            .common_extensions()
+            .contains(&ext_lower.as_str())
+        {
             MediaType::Voice
-        } else if Self::Video.common_extensions().contains(&ext_lower.as_str()) {
+        } else if Self::Video
+            .common_extensions()
+            .contains(&ext_lower.as_str())
+        {
             MediaType::Video
         } else {
             MediaType::File
@@ -244,8 +253,10 @@ impl FileType {
         }
 
         // Text files
-        if ["txt", "md", "markdown", "log", "json", "yaml", "yml", "toml", "ini", "cfg", "conf"]
-            .contains(&ext_lower.as_str())
+        if [
+            "txt", "md", "markdown", "log", "json", "yaml", "yml", "toml", "ini", "cfg", "conf",
+        ]
+        .contains(&ext_lower.as_str())
         {
             return FileType::Text;
         }
@@ -257,9 +268,9 @@ impl FileType {
 
         // Code files
         if [
-            "rs", "py", "js", "ts", "jsx", "tsx", "java", "c", "cpp", "h", "hpp", "cs", "go",
-            "rb", "php", "swift", "kt", "scala", "lua", "sh", "bat", "ps1", "sql", "html", "css",
-            "scss", "less", "vue", "svelte",
+            "rs", "py", "js", "ts", "jsx", "tsx", "java", "c", "cpp", "h", "hpp", "cs", "go", "rb",
+            "php", "swift", "kt", "scala", "lua", "sh", "bat", "ps1", "sql", "html", "css", "scss",
+            "less", "vue", "svelte",
         ]
         .contains(&ext_lower.as_str())
         {
@@ -267,22 +278,28 @@ impl FileType {
         }
 
         // Image files
-        if ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "ico", "tiff", "tif", "heic", "heif"]
-            .contains(&ext_lower.as_str())
+        if [
+            "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "ico", "tiff", "tif", "heic", "heif",
+        ]
+        .contains(&ext_lower.as_str())
         {
             return FileType::Image;
         }
 
         // Audio files
-        if ["mp3", "wav", "ogg", "flac", "aac", "m4a", "wma", "opus", "amr"]
-            .contains(&ext_lower.as_str())
+        if [
+            "mp3", "wav", "ogg", "flac", "aac", "m4a", "wma", "opus", "amr",
+        ]
+        .contains(&ext_lower.as_str())
         {
             return FileType::Audio;
         }
 
         // Video files
-        if ["mp4", "mov", "avi", "mkv", "flv", "webm", "wmv", "m4v", "3gp", "ts"]
-            .contains(&ext_lower.as_str())
+        if [
+            "mp4", "mov", "avi", "mkv", "flv", "webm", "wmv", "m4v", "3gp", "ts",
+        ]
+        .contains(&ext_lower.as_str())
         {
             return FileType::Video;
         }
@@ -428,7 +445,10 @@ mod tests {
     fn test_file_type_from_filename() {
         assert_eq!(FileType::from_filename("document.pdf"), FileType::Pdf);
         assert_eq!(FileType::from_filename("report.docx"), FileType::Word);
-        assert_eq!(FileType::from_filename("KioCafe VQM QR Code Scanning Requirement_V20260302.pdf"), FileType::Pdf);
+        assert_eq!(
+            FileType::from_filename("KioCafe VQM QR Code Scanning Requirement_V20260302.pdf"),
+            FileType::Pdf
+        );
         assert_eq!(FileType::from_filename("archive.tar.gz"), FileType::Archive);
         assert_eq!(FileType::from_filename("no_extension"), FileType::Other);
     }
@@ -451,7 +471,8 @@ mod tests {
 
     #[test]
     fn test_url_detection_result_simple() {
-        let result = UrlDetectionResult::simple(UrlType::ExternalHttp, DownloadStrategy::DirectHttp);
+        let result =
+            UrlDetectionResult::simple(UrlType::ExternalHttp, DownloadStrategy::DirectHttp);
         assert_eq!(result.url_type, UrlType::ExternalHttp);
         assert_eq!(result.strategy, DownloadStrategy::DirectHttp);
         assert!(!result.needs_napcat_api);

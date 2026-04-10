@@ -6,9 +6,7 @@
 use blockcell_core::config::NapCatConfig;
 use tracing::debug;
 
-use super::types::{
-    DownloadStrategy, NapCatMediaApi, UrlDetectionResult, UrlType,
-};
+use super::types::{DownloadStrategy, NapCatMediaApi, UrlDetectionResult, UrlType};
 
 /// QQ image CDN domain patterns.
 const QQ_IMAGE_CDN_PATTERNS: &[&str] = &[
@@ -43,13 +41,19 @@ const QQ_FILE_CDN_PATTERNS: &[&str] = &[
 pub fn detect_url_type(url: &str, config: &NapCatConfig) -> UrlDetectionResult {
     // 1. Check for Base64 data
     if url.starts_with("base64://") {
-        debug!(url_prefix = &url[..20.min(url.len())], "Detected Base64 data URL");
+        debug!(
+            url_prefix = &url[..20.min(url.len())],
+            "Detected Base64 data URL"
+        );
         return UrlDetectionResult::simple(UrlType::Base64Data, DownloadStrategy::DecodeBase64);
     }
 
     // 2. Check for local file path
     if url.starts_with("file:///") || url.starts_with("file://") {
-        debug!(url_prefix = &url[..20.min(url.len())], "Detected local file URL");
+        debug!(
+            url_prefix = &url[..20.min(url.len())],
+            "Detected local file URL"
+        );
         return UrlDetectionResult::simple(UrlType::LocalPath, DownloadStrategy::ReadLocalFile);
     }
 
@@ -113,7 +117,9 @@ pub fn extract_domain(url: &str) -> String {
         .unwrap_or(url);
 
     // Find the first '/' to separate domain from path
-    let end_pos = url_without_protocol.find('/').unwrap_or(url_without_protocol.len());
+    let end_pos = url_without_protocol
+        .find('/')
+        .unwrap_or(url_without_protocol.len());
 
     // Extract domain (might include port)
     let domain_with_port = &url_without_protocol[..end_pos];
@@ -147,12 +153,16 @@ fn is_napcat_proxy_url(url: &str, _config: &NapCatConfig) -> bool {
 
 /// Check if domain matches QQ image CDN patterns.
 fn is_qq_image_cdn(domain: &str) -> bool {
-    QQ_IMAGE_CDN_PATTERNS.iter().any(|pattern| domain.contains(pattern))
+    QQ_IMAGE_CDN_PATTERNS
+        .iter()
+        .any(|pattern| domain.contains(pattern))
 }
 
 /// Check if domain matches QQ file CDN patterns.
 fn is_qq_file_cdn(domain: &str) -> bool {
-    QQ_FILE_CDN_PATTERNS.iter().any(|pattern| domain.contains(pattern))
+    QQ_FILE_CDN_PATTERNS
+        .iter()
+        .any(|pattern| domain.contains(pattern))
 }
 
 /// Check if URL looks like a valid download URL.
@@ -178,7 +188,10 @@ pub fn is_valid_download_url(url: &str) -> bool {
     }
 
     // File IDs (alphanumeric with possible underscores and dashes)
-    !url.contains(' ') && url.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.' || c == '/')
+    !url.contains(' ')
+        && url
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.' || c == '/')
 }
 
 /// Extract filename from URL.
@@ -281,7 +294,10 @@ mod tests {
     fn test_extract_domain() {
         assert_eq!(extract_domain("https://example.com/path"), "example.com");
         assert_eq!(extract_domain("http://localhost:3000/api"), "localhost");
-        assert_eq!(extract_domain("https://gchat.qpic.cn:443/path"), "gchat.qpic.cn");
+        assert_eq!(
+            extract_domain("https://gchat.qpic.cn:443/path"),
+            "gchat.qpic.cn"
+        );
     }
 
     #[test]
@@ -295,7 +311,10 @@ mod tests {
             Some("image.png".to_string())
         );
         assert_eq!(extract_filename_from_url("base64://data"), None);
-        assert_eq!(extract_filename_from_url("file:///tmp/test.pdf"), Some("test.pdf".to_string()));
+        assert_eq!(
+            extract_filename_from_url("file:///tmp/test.pdf"),
+            Some("test.pdf".to_string())
+        );
     }
 
     #[test]

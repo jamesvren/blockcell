@@ -133,7 +133,9 @@ pub fn get_custom_template_path(config_dir: &std::path::Path) -> PathBuf {
 
 /// 加载模板
 #[allow(dead_code)]
-pub async fn load_session_memory_template(config_dir: &std::path::Path) -> Result<String, std::io::Error> {
+pub async fn load_session_memory_template(
+    config_dir: &std::path::Path,
+) -> Result<String, std::io::Error> {
     let template_path = get_custom_template_path(config_dir);
 
     match fs::read_to_string(&template_path).await {

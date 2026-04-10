@@ -1,13 +1,10 @@
 //! Metrics Summary - Snapshot and formatting for CLI output.
 
-use super::memory::get_memory_metrics;
 use super::circuit_breaker::{
-    get_compact_circuit_breaker,
-    get_memory_extraction_circuit_breaker,
-    get_dream_circuit_breaker,
-    reset_all_circuit_breakers,
-    CircuitState,
+    get_compact_circuit_breaker, get_dream_circuit_breaker, get_memory_extraction_circuit_breaker,
+    reset_all_circuit_breakers, CircuitState,
 };
+use super::memory::get_memory_metrics;
 use serde::Serialize;
 
 /// Summary of a single circuit breaker.
@@ -299,8 +296,7 @@ pub fn format_metrics_table(summary: &MetricsSummary, layer_filter: Option<u8>) 
         output.push_str("║  📁 Layer 1: Tool Result Storage\n");
         output.push_str(&format!(
             "║  ├─ Persisted: {} files | Budget exceeded: {}\n",
-            summary.layer1.persisted_count,
-            summary.layer1.budget_exceeded_count
+            summary.layer1.persisted_count, summary.layer1.budget_exceeded_count
         ));
         output.push_str(&format!(
             "║  ├─ Size: {} → {} preview ({:.1}% compression)\n",
@@ -321,14 +317,11 @@ pub fn format_metrics_table(summary: &MetricsSummary, layer_filter: Option<u8>) 
         output.push_str("║  ⚡ Layer 2: Micro Compact\n");
         output.push_str(&format!(
             "║  ├─ Triggered: {} times | Cleared: {} | Kept: {}\n",
-            summary.layer2.trigger_count,
-            summary.layer2.cleared_count,
-            summary.layer2.kept_count
+            summary.layer2.trigger_count, summary.layer2.cleared_count, summary.layer2.kept_count
         ));
         output.push_str(&format!(
             "║  └─ Config: gap={}min, keep_recent={}\n",
-            summary.layer2.gap_threshold_minutes,
-            summary.layer2.keep_recent
+            summary.layer2.gap_threshold_minutes, summary.layer2.keep_recent
         ));
     }
 
@@ -338,8 +331,7 @@ pub fn format_metrics_table(summary: &MetricsSummary, layer_filter: Option<u8>) 
         output.push_str("║  📝 Layer 3: Session Memory\n");
         output.push_str(&format!(
             "║  ├─ Extractions: {} | Loads: {}\n",
-            summary.layer3.extraction_count,
-            summary.layer3.load_count
+            summary.layer3.extraction_count, summary.layer3.load_count
         ));
         output.push_str(&format!(
             "║  ├─ Current: {} ({} sections)\n",
@@ -375,8 +367,7 @@ pub fn format_metrics_table(summary: &MetricsSummary, layer_filter: Option<u8>) 
         ));
         output.push_str(&format!(
             "║  │   ├─ Current: {} ({:.1}%)\n",
-            summary.layer4.current_tokens,
-            summary.layer4.usage_percentage
+            summary.layer4.current_tokens, summary.layer4.usage_percentage
         ));
         output.push_str(&format!(
             "║  │   └─ Remaining: {}\n",
@@ -446,8 +437,7 @@ pub fn format_metrics_table(summary: &MetricsSummary, layer_filter: Option<u8>) 
         ));
         output.push_str(&format!(
             "║  ├─ Sessions processed: {} | Pruned: {}\n",
-            summary.layer6.sessions_processed,
-            summary.layer6.sessions_pruned
+            summary.layer6.sessions_processed, summary.layer6.sessions_pruned
         ));
         output.push_str(&format!(
             "║  └─ Consolidation rate: {:.1}\n",
@@ -472,8 +462,7 @@ pub fn format_metrics_table(summary: &MetricsSummary, layer_filter: Option<u8>) 
         ));
         output.push_str(&format!(
             "║  ├─ Avg tokens: {:.0} | Avg turns: {:.1}\n",
-            summary.layer7.avg_tokens_per_agent,
-            summary.layer7.avg_turns
+            summary.layer7.avg_tokens_per_agent, summary.layer7.avg_turns
         ));
         output.push_str(&format!(
             "║  ├─ Avg duration: {:.1}s\n",
@@ -496,13 +485,19 @@ pub fn format_metrics_table(summary: &MetricsSummary, layer_filter: Option<u8>) 
             CircuitState::HalfOpen => ("◐", "HALF_OPEN", "半开"),
             CircuitState::Closed => ("●", "CLOSED", "正常"),
         };
-        format!("║    {} {}: {} {} (失败: {})\n", icon, name, state_text, desc, cb.failures)
+        format!(
+            "║    {} {}: {} {} (失败: {})\n",
+            icon, name, state_text, desc, cb.failures
+        )
     };
 
     // Layer 4: Compact 熔断器
     output.push_str(&format_cb(&summary.compact_circuit_breaker, "L4-Compact"));
     // Layer 5: Memory Extraction 熔断器
-    output.push_str(&format_cb(&summary.memory_extraction_circuit_breaker, "L5-Extract"));
+    output.push_str(&format_cb(
+        &summary.memory_extraction_circuit_breaker,
+        "L5-Extract",
+    ));
     // Layer 6: Dream 熔断器
     output.push_str(&format_cb(&summary.dream_circuit_breaker, "L6-Dream"));
 

@@ -2,24 +2,24 @@
 //!
 //! 各斜杠命令的具体实现。
 
-mod help;
-mod tasks;
-mod quit;
-mod skills;
-mod tools;
-mod learn;
 mod clear;
 mod compact;
-mod skill_mgmt;
+mod help;
+mod learn;
+mod quit;
 mod session_metrics;
+mod skill_mgmt;
+mod skills;
+mod tasks;
+mod tools;
 
-pub use help::HelpCommand;
-pub use tasks::TasksCommand;
-pub use quit::{QuitCommand, ExitCommand};
-pub use skills::SkillsCommand;
-pub use tools::ToolsCommand;
-pub use learn::LearnCommand;
 pub use clear::ClearCommand;
 pub use compact::CompactCommand;
-pub use skill_mgmt::{ClearSkillsCommand, ForgetSkillCommand};
+pub use help::HelpCommand;
+pub use learn::LearnCommand;
+pub use quit::{ExitCommand, QuitCommand};
 pub use session_metrics::SessionMetricsCommand;
+pub use skill_mgmt::{ClearSkillsCommand, ForgetSkillCommand};
+pub use skills::SkillsCommand;
+pub use tasks::TasksCommand;
+pub use tools::ToolsCommand;

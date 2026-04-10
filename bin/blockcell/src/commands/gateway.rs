@@ -9,6 +9,8 @@ use blockcell_channels::dingtalk::DingTalkChannel;
 use blockcell_channels::discord::DiscordChannel;
 #[cfg(feature = "feishu")]
 use blockcell_channels::feishu::FeishuChannel;
+#[cfg(feature = "napcat")]
+use blockcell_channels::napcat::NapCatChannel;
 #[cfg(feature = "slack")]
 use blockcell_channels::slack::SlackChannel;
 #[cfg(feature = "telegram")]
@@ -17,13 +19,11 @@ use blockcell_channels::telegram::TelegramChannel;
 use blockcell_channels::wecom::WeComChannel;
 #[cfg(feature = "whatsapp")]
 use blockcell_channels::whatsapp::WhatsAppChannel;
-#[cfg(feature = "napcat")]
-use blockcell_channels::napcat::NapCatChannel;
 use blockcell_channels::ChannelManager;
 use blockcell_core::{Config, InboundMessage, OutboundMessage, Paths};
 use blockcell_scheduler::{
-    CronJob, CronService, DreamService, DreamServiceConfig, GhostService, GhostServiceConfig, HeartbeatService, JobPayload,
-    JobSchedule, JobState, ScheduleKind,
+    CronJob, CronService, DreamService, DreamServiceConfig, GhostService, GhostServiceConfig,
+    HeartbeatService, JobPayload, JobSchedule, JobState, ScheduleKind,
 };
 use blockcell_skills::{new_registry_handle, CoreEvolution};
 use blockcell_skills::{EvolutionService, EvolutionServiceConfig};
@@ -1401,7 +1401,8 @@ pub async fn run(cli_host: Option<String>, cli_port: Option<u16>) -> anyhow::Res
                 match SLASH_COMMAND_HANDLER.try_handle(&msg.content, &ctx).await {
                     CommandResult::Handled(response) => {
                         // 发送响应回原渠道
-                        let reply = OutboundMessage::new(&msg.channel, &msg.chat_id, &response.content);
+                        let reply =
+                            OutboundMessage::new(&msg.channel, &msg.chat_id, &response.content);
                         if let Err(e) = slash_outbound_tx.send(reply).await {
                             warn!(error = %e, "Failed to send command response");
                         }
@@ -1656,9 +1657,10 @@ pub async fn run(cli_host: Option<String>, cli_port: Option<u16>) -> anyhow::Res
     for listener in blockcell_channels::account::weixin_listener_configs(&config) {
         let listener_name = listener.label.clone();
         info!(listener = %listener_name, "Starting Weixin listener");
-        let weixin = Arc::new(
-            blockcell_channels::weixin::WeixinChannel::new(listener.config, inbound_tx.clone()),
-        );
+        let weixin = Arc::new(blockcell_channels::weixin::WeixinChannel::new(
+            listener.config,
+            inbound_tx.clone(),
+        ));
         let shutdown_rx = shutdown_tx.subscribe();
         channel_handles.push((
             listener_name,

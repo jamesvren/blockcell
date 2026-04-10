@@ -185,8 +185,7 @@ impl<'a> NapCatPermissionChecker<'a> {
     /// Resolve allowed admins for a tool (with inheritance).
     fn resolve_allowed_admins(&self, tool_name: &str) -> Vec<String> {
         // Check tool-specific override
-        if let Some(override_config) = self.config.admin_permissions.tool_overrides.get(tool_name)
-        {
+        if let Some(override_config) = self.config.admin_permissions.tool_overrides.get(tool_name) {
             if let Some(ref admins) = override_config.allowed_admins {
                 return admins.clone();
             }
@@ -204,8 +203,7 @@ impl<'a> NapCatPermissionChecker<'a> {
     /// Resolve allowed groups for a tool (with inheritance).
     fn resolve_allowed_groups(&self, tool_name: &str) -> Vec<String> {
         // Check tool-specific override
-        if let Some(override_config) = self.config.admin_permissions.tool_overrides.get(tool_name)
-        {
+        if let Some(override_config) = self.config.admin_permissions.tool_overrides.get(tool_name) {
             if let Some(ref groups) = override_config.allowed_groups {
                 return groups.clone();
             }
@@ -222,8 +220,7 @@ impl<'a> NapCatPermissionChecker<'a> {
 
     /// Resolve default policy for a tool.
     fn resolve_default_policy(&self, tool_name: &str) -> String {
-        if let Some(override_config) = self.config.admin_permissions.tool_overrides.get(tool_name)
-        {
+        if let Some(override_config) = self.config.admin_permissions.tool_overrides.get(tool_name) {
             if let Some(ref policy) = override_config.default_policy {
                 return policy.clone();
             }
@@ -243,8 +240,7 @@ impl<'a> NapCatPermissionChecker<'a> {
     /// Check if a tool needs confirmation.
     fn needs_confirmation(&self, tool_name: &str) -> bool {
         // Check tool-specific override
-        if let Some(override_config) = self.config.admin_permissions.tool_overrides.get(tool_name)
-        {
+        if let Some(override_config) = self.config.admin_permissions.tool_overrides.get(tool_name) {
             if override_config.require_confirmation {
                 return true;
             }
@@ -364,9 +360,7 @@ pub async fn call_api(
     request: ApiRequest,
 ) -> Result<ApiResponse> {
     if !is_ws_api_available() {
-        return Err(Error::Channel(
-            "WebSocket is not connected".to_string()
-        ));
+        return Err(Error::Channel("WebSocket is not connected".to_string()));
     }
     blockcell_channels::napcat::call_api_via_ws(request)
         .await
@@ -401,7 +395,7 @@ pub async fn call_stream_api(
 
     if !blockcell_channels::napcat::is_ws_stream_available() {
         return Err(Error::Channel(
-            "WebSocket stream caller is not available".to_string()
+            "WebSocket stream caller is not available".to_string(),
         ));
     }
     blockcell_channels::napcat::call_stream_api_via_ws(request)
@@ -442,14 +436,18 @@ pub async fn download_media_to_workspace(
         url,
         Some(3), // Use 3 threads for download
         None,
-    ).await?;
+    )
+    .await?;
 
     // Determine filename
     let filename = filename.map(|s| s.to_string()).unwrap_or_else(|| {
         // Try to extract filename from URL
         if let Some(name) = url.split('/').next_back() {
             // Remove query parameters
-            name.split('?').next().unwrap_or("downloaded_file").to_string()
+            name.split('?')
+                .next()
+                .unwrap_or("downloaded_file")
+                .to_string()
         } else {
             format!("media_{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"))
         }
@@ -470,7 +468,8 @@ pub async fn download_media_to_workspace(
     let date_str = chrono::Local::now().format("%Y-%m-%d").to_string();
     let subdir_name = if let Some(cid) = chat_id {
         // Extract the ID part (remove "user:" or "group:" prefix)
-        let id_part = cid.strip_prefix("user:")
+        let id_part = cid
+            .strip_prefix("user:")
             .or_else(|| cid.strip_prefix("group:"))
             .unwrap_or(cid);
         format!("{}_{}", date_str, id_part)
@@ -489,11 +488,13 @@ pub async fn download_media_to_workspace(
 
     // Save file
     let file_path = downloads_dir.join(&filename);
-    let mut file = tokio::fs::File::create(&file_path).await
+    let mut file = tokio::fs::File::create(&file_path)
+        .await
         .map_err(|e| Error::Tool(format!("Failed to create file: {}", e)))?;
 
     use tokio::io::AsyncWriteExt;
-    file.write_all(&file_data).await
+    file.write_all(&file_data)
+        .await
         .map_err(|e| Error::Tool(format!("Failed to write file: {}", e)))?;
 
     tracing::info!(
@@ -556,11 +557,7 @@ pub fn generate_media_filename(media_type: &str, extension: Option<&str>) -> Str
 /// # Returns
 ///
 /// The local file path if found, or None.
-pub fn find_downloaded_media(
-    config: &NapCatConfig,
-    url: &str,
-    workspace: &str,
-) -> Option<String> {
+pub fn find_downloaded_media(config: &NapCatConfig, url: &str, workspace: &str) -> Option<String> {
     // Expand workspace path if it starts with ~
     let workspace_dir = if workspace.starts_with('~') {
         if let Some(home) = dirs::home_dir() {
@@ -637,19 +634,16 @@ pub async fn download_media_if_needed(
 
     // Not downloaded yet, check if auto_download is enabled
     if !config.auto_download_media {
-        tracing::debug!(url = url, "Media not downloaded and auto_download_media is disabled");
+        tracing::debug!(
+            url = url,
+            "Media not downloaded and auto_download_media is disabled"
+        );
         return Ok(None);
     }
 
     // Download the media
-    let local_path = download_media_to_workspace(
-        config,
-        account_id,
-        url,
-        filename,
-        workspace,
-        chat_id,
-    ).await?;
+    let local_path =
+        download_media_to_workspace(config, account_id, url, filename, workspace, chat_id).await?;
 
     Ok(Some((local_path, false)))
 }
@@ -682,15 +676,16 @@ pub fn build_napcat_user_permissions(
     perms = perms.with_permission("channel:napcat");
 
     // Check if user is in allow_from or allow_from is empty (allow all)
-    let user_allowed = sender_id.map(|uid| {
-        config.allow_from.is_empty()
-            || config.allow_from.iter().any(|a| a == uid || a == "*")
-    }).unwrap_or(true);
+    let user_allowed = sender_id
+        .map(|uid| {
+            config.allow_from.is_empty() || config.allow_from.iter().any(|a| a == uid || a == "*")
+        })
+        .unwrap_or(true);
 
     // Check if user is in block_from
-    let user_blocked = sender_id.map(|uid| {
-        config.block_from.iter().any(|b| b == uid || b == "*")
-    }).unwrap_or(false);
+    let user_blocked = sender_id
+        .map(|uid| config.block_from.iter().any(|b| b == uid || b == "*"))
+        .unwrap_or(false);
 
     // Parse group_id from chat_id if it's a group chat
     let group_id = chat_id.strip_prefix("group:");
@@ -699,8 +694,7 @@ pub fn build_napcat_user_permissions(
     // Check group allowlist
     let group_allowed = if is_group {
         let gid = group_id.unwrap();
-        config.allow_groups.is_empty()
-            || config.allow_groups.iter().any(|g| g == gid || g == "*")
+        config.allow_groups.is_empty() || config.allow_groups.iter().any(|g| g == gid || g == "*")
     } else {
         true // Private chats don't need group check
     };
@@ -717,12 +711,18 @@ pub fn build_napcat_user_permissions(
         perms = perms.with_permission("napcat:medium_risk");
 
         // Check if user is an admin for high-risk operations
-        let is_admin = sender_id.map(|uid| {
-            // Check if user is in allowed_admins or allow_from
-            config.admin_permissions.allowed_admins.iter().any(|a| a == uid || a == "*")
-                || (config.admin_permissions.allowed_admins.is_empty()
-                    && config.allow_from.iter().any(|a| a == uid || a == "*"))
-        }).unwrap_or(false);
+        let is_admin = sender_id
+            .map(|uid| {
+                // Check if user is in allowed_admins or allow_from
+                config
+                    .admin_permissions
+                    .allowed_admins
+                    .iter()
+                    .any(|a| a == uid || a == "*")
+                    || (config.admin_permissions.allowed_admins.is_empty()
+                        && config.allow_from.iter().any(|a| a == uid || a == "*"))
+            })
+            .unwrap_or(false);
 
         if is_admin {
             perms = perms.with_permission("napcat:high_risk");
@@ -754,10 +754,7 @@ mod tests {
             get_tool_risk_level("napcat_set_group_ban"),
             RiskLevel::MediumRisk
         );
-        assert_eq!(
-            get_tool_risk_level("napcat_send_like"),
-            RiskLevel::LowRisk
-        );
+        assert_eq!(get_tool_risk_level("napcat_send_like"), RiskLevel::LowRisk);
     }
 
     #[test]

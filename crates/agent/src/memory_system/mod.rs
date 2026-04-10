@@ -2,13 +2,12 @@
 //!
 //! 封装所有 7 层记忆系统的状态和操作，提供统一接口。
 
-use crate::auto_memory::{ExtractionCursor, MemoryType, ExtractionCursorManager};
-use crate::compact::{CompactHookRegistry, should_compact, FileTracker, SkillTracker};
-use crate::session_memory::{
-    SessionMemoryState, SessionMemoryConfig, should_extract_memory,
-    get_session_memory_path,
-};
+use crate::auto_memory::{ExtractionCursor, ExtractionCursorManager, MemoryType};
+use crate::compact::{should_compact, CompactHookRegistry, FileTracker, SkillTracker};
 use crate::response_cache::ContentReplacementState;
+use crate::session_memory::{
+    get_session_memory_path, should_extract_memory, SessionMemoryConfig, SessionMemoryState,
+};
 use blockcell_core::types::ChatMessage;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -147,9 +146,7 @@ impl MemorySystem {
     pub fn session_dir(&self) -> PathBuf {
         use blockcell_core::session_file_stem;
         let safe_session_id = session_file_stem(&self.session_id);
-        self.workspace_dir
-            .join("sessions")
-            .join(safe_session_id)
+        self.workspace_dir.join("sessions").join(safe_session_id)
     }
 
     /// 标记会话为活跃状态
@@ -213,7 +210,11 @@ impl MemorySystem {
         if !self.config.compact_enabled {
             return false;
         }
-        should_compact(current_tokens, self.config.token_budget, self.config.compact_threshold)
+        should_compact(
+            current_tokens,
+            self.config.token_budget,
+            self.config.compact_threshold,
+        )
     }
 
     /// 更新 Session Memory 状态
@@ -297,7 +298,8 @@ impl MemorySystem {
     ///
     /// 如果后台任务设置了标志，返回 true 并清除标志。
     fn check_and_clear_cursor_reload(&self) -> bool {
-        self.cursor_reload_flag.swap(false, std::sync::atomic::Ordering::Relaxed)
+        self.cursor_reload_flag
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
     }
 
     /// 获取配置
@@ -399,7 +401,9 @@ impl MemorySystem {
     /// 返回清理的任务数量
     pub fn cleanup_completed_tasks(&mut self) -> usize {
         let before = self.state.background_tasks.len();
-        self.state.background_tasks.retain(|handle| !handle.is_finished());
+        self.state
+            .background_tasks
+            .retain(|handle| !handle.is_finished());
         before - self.state.background_tasks.len()
     }
 
@@ -440,7 +444,12 @@ impl MemorySystem {
         while self.has_running_background_tasks() {
             if start.elapsed() >= timeout {
                 // 超时，取消剩余任务
-                let running_count = self.state.background_tasks.iter().filter(|h| !h.is_finished()).count();
+                let running_count = self
+                    .state
+                    .background_tasks
+                    .iter()
+                    .filter(|h| !h.is_finished())
+                    .count();
                 tracing::warn!(
                     running_count,
                     timeout_secs,
@@ -522,7 +531,12 @@ impl Drop for MemorySystem {
         }
 
         // 自动清理所有后台任务，防止 zombie tasks
-        let running_count = self.state.background_tasks.iter().filter(|h| !h.is_finished()).count();
+        let running_count = self
+            .state
+            .background_tasks
+            .iter()
+            .filter(|h| !h.is_finished())
+            .count();
         if running_count > 0 {
             tracing::debug!(
                 running_count,
@@ -679,10 +693,7 @@ mod tests {
             "test".to_string(),
         );
 
-        let messages = vec![
-            ChatMessage::user("Hello"),
-            ChatMessage::assistant("Hi!"),
-        ];
+        let messages = vec![ChatMessage::user("Hello"), ChatMessage::assistant("Hi!")];
 
         let action = evaluate_memory_hooks(&memory_system, &messages, 100);
         assert!(matches!(action, PostSamplingAction::None));
@@ -836,7 +847,12 @@ mod tests {
 
         // 即使有足够的消息触发 auto memory，也应该优先返回 Compact
         let messages: Vec<ChatMessage> = (0..20)
-            .flat_map(|i| vec![ChatMessage::user(&format!("msg {}", i)), ChatMessage::assistant("resp")])
+            .flat_map(|i| {
+                vec![
+                    ChatMessage::user(&format!("msg {}", i)),
+                    ChatMessage::assistant("resp"),
+                ]
+            })
             .collect();
 
         let action = evaluate_memory_hooks(&memory_system, &messages, 100);

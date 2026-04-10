@@ -1,8 +1,8 @@
+use crate::auto_memory::MemoryInjector;
 use blockcell_core::types::ChatMessage;
 use blockcell_core::{Config, Paths};
 use blockcell_skills::{EvolutionService, EvolutionServiceConfig, LLMProvider, SkillManager};
 use blockcell_tools::MemoryStoreHandle;
-use crate::auto_memory::MemoryInjector;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
@@ -312,7 +312,14 @@ impl ContextBuilder {
 
                 // 记录 Layer 5 injection_completed 事件
                 let (user, project, feedback, reference) = injector.memory_counts();
-                crate::memory_event!(layer5, injection_completed, user, project, feedback, reference);
+                crate::memory_event!(
+                    layer5,
+                    injection_completed,
+                    user,
+                    project,
+                    feedback,
+                    reference
+                );
             }
         }
 
@@ -709,11 +716,9 @@ description: deploy demo
 
         let builder = ContextBuilder::new(paths, Config::default());
 
-        assert!(
-            builder
-                .resolve_active_skill("please deploy the release", &HashSet::new())
-                .is_none()
-        );
+        assert!(builder
+            .resolve_active_skill("please deploy the release", &HashSet::new())
+            .is_none());
         assert_eq!(
             builder
                 .resolve_active_skill("deploy_demo", &HashSet::new())

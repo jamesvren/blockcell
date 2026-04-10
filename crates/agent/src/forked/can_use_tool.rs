@@ -84,7 +84,10 @@ pub fn create_auto_mem_can_use_tool(memory_dir: &Path) -> CanUseToolFn {
         }
 
         // Edit/Write 仅限记忆目录内
-        if matches!(tool_name, "file_edit" | "edit_file" | "file_write" | "write_file") {
+        if matches!(
+            tool_name,
+            "file_edit" | "edit_file" | "file_write" | "write_file"
+        ) {
             if let Some(file_path) = input.get("file_path").and_then(|v| v.as_str()) {
                 if is_auto_mem_path(file_path, &memory_dir) {
                     return ToolPermission::Allow;
@@ -131,7 +134,10 @@ pub fn create_dream_can_use_tool(memory_root: &Path) -> CanUseToolFn {
         }
 
         // Edit/Write 仅限记忆目录
-        if matches!(tool_name, "file_edit" | "edit_file" | "file_write" | "write_file") {
+        if matches!(
+            tool_name,
+            "file_edit" | "edit_file" | "file_write" | "write_file"
+        ) {
             if let Some(file_path) = input.get("file_path").and_then(|v| v.as_str()) {
                 // 安全检查：解析符号链接防止路径遍历
                 if is_path_within_directory(file_path, &memory_root) {
@@ -153,14 +159,14 @@ pub fn create_dream_can_use_tool(memory_root: &Path) -> CanUseToolFn {
 ///
 /// Compact 不需要工具，只生成文本摘要
 pub fn create_compact_can_use_tool() -> CanUseToolFn {
-    Arc::new(|tool_name: &str, _input: &serde_json::Value| {
-        ToolPermission::Deny {
+    Arc::new(
+        |tool_name: &str, _input: &serde_json::Value| ToolPermission::Deny {
             message: format!(
                 "Compact mode does not allow any tools, attempted: {}",
                 tool_name
             ),
-        }
-    })
+        },
+    )
 }
 
 /// 检查是否只读命令
@@ -181,10 +187,27 @@ fn is_read_only_command(cmd: &str) -> bool {
     }
 
     let read_only_prefixes = [
-        "ls", "find", "grep", "cat", "stat", "wc", "head", "tail",
-        "git status", "git log", "git diff", "git show", "git branch",
-        "echo", "pwd", "which", "whoami",
-        "type", "file", "du", "tree",
+        "ls",
+        "find",
+        "grep",
+        "cat",
+        "stat",
+        "wc",
+        "head",
+        "tail",
+        "git status",
+        "git log",
+        "git diff",
+        "git show",
+        "git branch",
+        "echo",
+        "pwd",
+        "which",
+        "whoami",
+        "type",
+        "file",
+        "du",
+        "tree",
     ];
 
     let cmd_trimmed = cmd.trim();
@@ -198,8 +221,7 @@ fn is_read_only_command(cmd: &str) -> bool {
     // 5. 后台执行 (&) - 可能在后台执行危险操作
     // 6. 换行转义 (\n, \r) - 可能注入新命令
     let dangerous_patterns = [
-        ">>", ">", "|", "$(", "`", ";", "&&", "||", "&",
-        "\\n", "\\r", "\n", "\r",
+        ">>", ">", "|", "$(", "`", ";", "&&", "||", "&", "\\n", "\\r", "\n", "\r",
     ];
 
     for pattern in &dangerous_patterns {

@@ -99,7 +99,9 @@ impl MediaDownloader for LocalFileDownloader {
         let _size = metadata.len() as usize;
 
         // Determine filename - handle empty string case
-        let filename = request.filename.clone()
+        let filename = request
+            .filename
+            .clone()
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| {
                 src_path

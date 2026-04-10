@@ -37,9 +37,12 @@ use tracing::{error, info, warn};
 use blockcell_core::{Config, Error, InboundMessage, Result};
 
 use super::super::event::MessageEvent;
-use super::sender::{init_sender, init_api_caller, init_stream_caller, OutboundMessage, ApiCallRequest, StreamCallRequest};
+use super::super::media::{build_enhanced_content, build_media_metadata, process_media_segments};
 use super::super::types::{ApiRequest, ApiResponse, StreamChunkData};
-use super::super::media::{process_media_segments, build_enhanced_content, build_media_metadata};
+use super::sender::{
+    init_api_caller, init_sender, init_stream_caller, ApiCallRequest, OutboundMessage,
+    StreamCallRequest,
+};
 
 /// Message deduplication cache (shared with client mode).
 static DEDUP_CACHE: std::sync::OnceLock<Mutex<HashSet<String>>> = std::sync::OnceLock::new();
@@ -130,7 +133,11 @@ impl NapCatWsServer {
             "NapCatQQ WebSocket server starting on {} (path: {}, token: {})",
             bind_addr,
             server_path,
-            if access_token.is_empty() { "none" } else { "configured" }
+            if access_token.is_empty() {
+                "none"
+            } else {
+                "configured"
+            }
         );
 
         let listener = match TcpListener::bind(&bind_addr).await {
@@ -145,7 +152,11 @@ impl NapCatWsServer {
             "NapCatQQ WebSocket server listening on ws://{}{}{}",
             bind_addr,
             server_path,
-            if access_token.is_empty() { "" } else { "?access_token=***" }
+            if access_token.is_empty() {
+                ""
+            } else {
+                "?access_token=***"
+            }
         );
 
         // Initialize the global outbound sender for WebSocket mode
@@ -383,7 +394,10 @@ impl NapCatWsServer {
                 // Return Err to reject the connection
                 return Err(Response::builder()
                     .status(404)
-                    .body(Some(format!("Not Found: expected path '{}'", expected_path_clone)))
+                    .body(Some(format!(
+                        "Not Found: expected path '{}'",
+                        expected_path_clone
+                    )))
                     .unwrap());
             }
 
@@ -447,7 +461,10 @@ impl NapCatWsServer {
             }
         };
 
-        info!("NapCatQQ WebSocket connection established from {}", remote_addr);
+        info!(
+            "NapCatQQ WebSocket connection established from {}",
+            remote_addr
+        );
 
         // We need to validate the access token manually since accept_hdr_async
         // doesn't provide easy access to the request. For now, we'll validate
@@ -549,7 +566,10 @@ impl NapCatWsServer {
     async fn handle_ws_message(&self, text: &str) {
         // Try to parse as event
         if let Ok(event) = serde_json::from_str::<serde_json::Value>(text) {
-            let post_type = event.get("post_type").and_then(|v| v.as_str()).unwrap_or("");
+            let post_type = event
+                .get("post_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             match post_type {
                 "message" => {
@@ -571,7 +591,8 @@ impl NapCatWsServer {
                         .unwrap_or("");
                     match meta_type {
                         "lifecycle" => {
-                            let sub_type = event.get("sub_type").and_then(|v| v.as_str()).unwrap_or("");
+                            let sub_type =
+                                event.get("sub_type").and_then(|v| v.as_str()).unwrap_or("");
                             info!("NapCatQQ lifecycle event: {}", sub_type);
                         }
                         "heartbeat" => {}
@@ -602,9 +623,8 @@ impl NapCatWsServer {
                                 }
                             } else {
                                 // Try to find by echo placeholder (keys starting with "stream_")
-                                let placeholder_key = active.keys()
-                                    .find(|k| k.starts_with("stream_"))
-                                    .cloned();
+                                let placeholder_key =
+                                    active.keys().find(|k| k.starts_with("stream_")).cloned();
 
                                 if let Some(key) = placeholder_key {
                                     if let Some(tx) = active.get(&key) {
@@ -631,13 +651,17 @@ impl NapCatWsServer {
                     // Extract echo - it could be a string or a number
                     let echo_value = event.get("echo");
                     let echo = echo_value.and_then(|v| {
-                        v.as_str().map(|s| s.to_string()).or_else(|| v.as_i64().map(|n| n.to_string()))
+                        v.as_str()
+                            .map(|s| s.to_string())
+                            .or_else(|| v.as_i64().map(|n| n.to_string()))
                     });
 
                     if let Some(echo) = echo {
                         let mut pending = self.pending_requests.lock().await;
                         if let Some(tx) = pending.remove(&echo) {
-                            if let Ok(response) = serde_json::from_value::<ApiResponse>(event.clone()) {
+                            if let Ok(response) =
+                                serde_json::from_value::<ApiResponse>(event.clone())
+                            {
                                 let _ = tx.send(response);
                             }
                         }
@@ -652,14 +676,12 @@ impl NapCatWsServer {
 
     /// Handle a message event from NapCatQQ.
     async fn handle_message_event(&self, event: &serde_json::Value) -> Result<()> {
-        use crate::account::napcat_account_id;
         use super::super::event::MessageEvent;
+        use crate::account::napcat_account_id;
 
         // Parse message event
-        let msg_event: MessageEvent =
-            serde_json::from_value(event.clone()).map_err(|e| {
-                Error::Channel(format!("Failed to parse message event: {}", e))
-            })?;
+        let msg_event: MessageEvent = serde_json::from_value(event.clone())
+            .map_err(|e| Error::Channel(format!("Failed to parse message event: {}", e)))?;
 
         // Check for duplicate message
         let msg_id = msg_event.message_id.to_string();
@@ -706,12 +728,8 @@ impl NapCatWsServer {
         // Auto-download media if configured
         let workspace = &self.config.agents.defaults.workspace;
         let napcat_config = &self.config.channels.napcat;
-        let downloaded = process_media_segments(
-            napcat_config,
-            segments,
-            &chat_id,
-            workspace,
-        ).await?;
+        let downloaded =
+            process_media_segments(napcat_config, segments, &chat_id, workspace).await?;
 
         // Build enhanced content with downloaded media info
         let content = build_enhanced_content(&original_text, &downloaded, &chat_id);
@@ -804,7 +822,10 @@ impl NapCatWsServer {
             return true;
         }
 
-        napcat.allow_groups.iter().any(|g| g == group_id || g == "*")
+        napcat
+            .allow_groups
+            .iter()
+            .any(|g| g == group_id || g == "*")
     }
 
     /// Check if should respond to a group message based on response mode.
@@ -1100,12 +1121,7 @@ impl NapCatWsServer {
     }
 
     /// Set group kick via WebSocket.
-    pub async fn set_group_kick(
-        &self,
-        self_id: &str,
-        group_id: &str,
-        user_id: &str,
-    ) -> Result<()> {
+    pub async fn set_group_kick(&self, self_id: &str, group_id: &str, user_id: &str) -> Result<()> {
         use super::super::types::ApiRequest;
         let request = ApiRequest::set_group_kick(group_id, user_id, None, None);
         let response = self.call_api(self_id, request).await?;

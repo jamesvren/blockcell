@@ -1,5 +1,5 @@
-use base64::Engine;
 use crate::account::weixin_account_id;
+use base64::Engine;
 use blockcell_core::{Config, Error, InboundMessage, Result};
 use reqwest::Client;
 use reqwest::Proxy;
@@ -385,11 +385,7 @@ impl WeixinChannel {
 
 // ── Public send functions ──
 
-pub async fn send_message(
-    config: &Config,
-    chat_id: &str,
-    text: &str,
-) -> Result<()> {
+pub async fn send_message(config: &Config, chat_id: &str, text: &str) -> Result<()> {
     let token = &config.channels.weixin.token;
     if token.is_empty() {
         return Err(Error::Channel("Weixin: token not configured".to_string()));
@@ -437,7 +433,10 @@ pub async fn fetch_login_qrcode(config: &Config) -> Result<WeixinLoginQrCode> {
     let client = build_client(config, Duration::from_secs(15))?;
 
     let resp = client
-        .get(format!("{}/ilink/bot/get_bot_qrcode?bot_type=3", WEIXIN_API_BASE))
+        .get(format!(
+            "{}/ilink/bot/get_bot_qrcode?bot_type=3",
+            WEIXIN_API_BASE
+        ))
         .header("X-WECHAT-UIN", generate_uin())
         .send()
         .await
@@ -457,11 +456,7 @@ pub async fn fetch_login_qrcode(config: &Config) -> Result<WeixinLoginQrCode> {
         .await
         .map_err(|e| Error::Channel(format!("Weixin get_bot_qrcode parse error: {}", e)))?;
 
-    let qrcode = payload
-        .qrcode
-        .unwrap_or_default()
-        .trim()
-        .to_string();
+    let qrcode = payload.qrcode.unwrap_or_default().trim().to_string();
     let qrcode_img_content = payload
         .qrcode_img_content
         .unwrap_or_default()

@@ -9,8 +9,7 @@ pub mod server;
 
 pub use client::NapCatWsClient;
 pub use sender::{
-    get_sender, init_sender, is_ws_mode, send_via_ws, send_via_ws_with_self_id,
-    OutboundMessage, is_ws_api_available, call_api_via_ws,
-    is_ws_stream_available, call_stream_api_via_ws,
+    call_api_via_ws, call_stream_api_via_ws, get_sender, init_sender, is_ws_api_available,
+    is_ws_mode, is_ws_stream_available, send_via_ws, send_via_ws_with_self_id, OutboundMessage,
 };
 pub use server::NapCatWsServer;

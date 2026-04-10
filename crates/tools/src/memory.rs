@@ -373,9 +373,9 @@ impl Tool for MemoryForgetTool {
 mod tests {
     use super::*;
     use blockcell_core::Config;
+    use serde_json::json;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
-    use serde_json::json;
 
     struct CaptureMemoryStore {
         last_upsert: Mutex<Option<Value>>,

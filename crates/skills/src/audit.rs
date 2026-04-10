@@ -20,20 +20,35 @@ pub struct StaticViolation {
 const RHAI_DANGEROUS_PATTERNS: &[(&str, &str)] = &[
     ("remove_dir", "Detected directory removal operation"),
     ("delete_file", "Detected file deletion operation"),
-    ("exec(", "Detected shell execution — potential command injection"),
+    (
+        "exec(",
+        "Detected shell execution — potential command injection",
+    ),
     ("eval(", "Detected eval — potential code injection"),
 ];
 
 const PYTHON_DANGEROUS_PATTERNS: &[(&str, &str)] = &[
     ("os.remove(", "Detected os.remove — file deletion"),
     ("os.unlink(", "Detected os.unlink — file deletion"),
-    ("shutil.rmtree(", "Detected shutil.rmtree — recursive directory removal"),
-    ("subprocess.call(", "Detected subprocess.call — potential shell injection"),
-    ("subprocess.Popen(", "Detected subprocess.Popen — potential shell injection"),
+    (
+        "shutil.rmtree(",
+        "Detected shutil.rmtree — recursive directory removal",
+    ),
+    (
+        "subprocess.call(",
+        "Detected subprocess.call — potential shell injection",
+    ),
+    (
+        "subprocess.Popen(",
+        "Detected subprocess.Popen — potential shell injection",
+    ),
     ("os.system(", "Detected os.system — shell execution"),
     ("eval(", "Detected eval — potential code injection"),
     ("exec(", "Detected exec — potential code injection"),
-    ("__import__(", "Detected dynamic import — potential security risk"),
+    (
+        "__import__(",
+        "Detected dynamic import — potential security risk",
+    ),
 ];
 
 const LOCAL_SCRIPT_DANGEROUS_PATTERNS: &[(&str, &str)] = &[
@@ -108,11 +123,7 @@ pub fn static_audit_with_layout(
 }
 
 /// Check code against a list of dangerous patterns.
-fn check_patterns(
-    code: &str,
-    patterns: &[(&str, &str)],
-    violations: &mut Vec<StaticViolation>,
-) {
+fn check_patterns(code: &str, patterns: &[(&str, &str)], violations: &mut Vec<StaticViolation>) {
     for &(pattern, description) in patterns {
         if code.contains(pattern) {
             violations.push(StaticViolation {
@@ -127,13 +138,12 @@ fn check_patterns(
 /// Rhai-specific checks.
 fn check_rhai_specific(code: &str, violations: &mut Vec<StaticViolation>) {
     // Check for unbounded loops without break
-    if (code.contains("loop {") || code.contains("loop{"))
-        && !code.contains("break")
-    {
+    if (code.contains("loop {") || code.contains("loop{")) && !code.contains("break") {
         violations.push(StaticViolation {
             severity: "error",
             rule: "infinite_loop",
-            message: "Detected `loop {}` without any `break` statement — potential infinite loop".to_string(),
+            message: "Detected `loop {}` without any `break` statement — potential infinite loop"
+                .to_string(),
         });
     }
 
@@ -142,7 +152,9 @@ fn check_rhai_specific(code: &str, violations: &mut Vec<StaticViolation>) {
         violations.push(StaticViolation {
             severity: "error",
             rule: "infinite_loop",
-            message: "Detected `while true` without any `break` statement — potential infinite loop".to_string(),
+            message:
+                "Detected `while true` without any `break` statement — potential infinite loop"
+                    .to_string(),
         });
     }
 
@@ -153,7 +165,10 @@ fn check_rhai_specific(code: &str, violations: &mut Vec<StaticViolation>) {
             violations.push(StaticViolation {
                 severity: "error",
                 rule: "wrong_language",
-                message: format!("Detected non-Rhai syntax `{}` — skill must be pure Rhai", pattern.trim()),
+                message: format!(
+                    "Detected non-Rhai syntax `{}` — skill must be pure Rhai",
+                    pattern.trim()
+                ),
             });
         }
     }
@@ -217,7 +232,8 @@ fn check_local_script_specific(code: &str, violations: &mut Vec<StaticViolation>
         violations.push(StaticViolation {
             severity: "warning",
             rule: "shell_hardening",
-            message: "Consider using `set -euo pipefail` or equivalent hardening for shell scripts".to_string(),
+            message: "Consider using `set -euo pipefail` or equivalent hardening for shell scripts"
+                .to_string(),
         });
     }
 }
@@ -241,7 +257,8 @@ fn check_prompt_only(code: &str, violations: &mut Vec<StaticViolation>) {
         violations.push(StaticViolation {
             severity: "warning",
             rule: "no_structure",
-            message: "SKILL.md has no markdown headings — document should be structured".to_string(),
+            message: "SKILL.md has no markdown headings — document should be structured"
+                .to_string(),
         });
     }
 }
@@ -329,7 +346,10 @@ import os
 os.system("rm -rf /")
 "#;
         let result = static_audit(&SkillType::Python, code);
-        assert!(result.violations.iter().any(|v| v.rule == "dangerous_operation"));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| v.rule == "dangerous_operation"));
     }
 
     #[test]

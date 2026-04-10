@@ -10,13 +10,15 @@
 //! - **用量追踪**: 追踪所有 API 调用的 token 使用
 //! - **工具执行**: 执行有限的文件操作工具（read/write/edit）
 
-use std::path::Path;
-use std::time::{Instant, Duration};
-use std::sync::Arc;
+use super::{
+    create_subagent_context, CacheSafeParams, CanUseToolFn, SubagentOverrides, ToolPermission,
+};
+use crate::memory_event;
 use blockcell_core::types::ChatMessage;
 use blockcell_providers::ProviderPool;
-use super::{CacheSafeParams, CanUseToolFn, SubagentOverrides, create_subagent_context, ToolPermission};
-use crate::memory_event;
+use std::path::Path;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 /// Provider 获取重试配置
 const PROVIDER_RETRY_MAX_ATTEMPTS: usize = 3;
@@ -275,7 +277,9 @@ impl ForkedAgentParamsBuilder {
             prompt_messages: self.prompt_messages,
             cache_safe_params: self.cache_safe_params,
             provider_pool: self.provider_pool,
-            can_use_tool: self.can_use_tool.unwrap_or_else(|| Arc::new(|_, _| ToolPermission::Allow)),
+            can_use_tool: self
+                .can_use_tool
+                .unwrap_or_else(|| Arc::new(|_, _| ToolPermission::Allow)),
             query_source: self.query_source,
             fork_label: self.fork_label,
             overrides: self.overrides,
@@ -329,9 +333,8 @@ impl UsageMetrics {
 
     /// 计算缓存命中率
     pub fn cache_hit_rate(&self) -> f64 {
-        let total = self.input_tokens
-            + self.cache_creation_input_tokens
-            + self.cache_read_input_tokens;
+        let total =
+            self.input_tokens + self.cache_creation_input_tokens + self.cache_read_input_tokens;
         if total > 0 {
             self.cache_read_input_tokens as f64 / total as f64
         } else {
@@ -408,14 +411,14 @@ fn validate_path_safety(path: &str) -> Result<(), ForkedAgentError> {
     // 检查空字节注入
     if path.contains('\0') {
         return Err(ForkedAgentError::ToolError(
-            "Invalid path: contains null byte".to_string()
+            "Invalid path: contains null byte".to_string(),
         ));
     }
 
     // 检查路径遍历
     if path.contains("..") {
         return Err(ForkedAgentError::ToolError(
-            "Path traversal detected: '..' not allowed".to_string()
+            "Path traversal detected: '..' not allowed".to_string(),
         ));
     }
 
@@ -436,7 +439,8 @@ fn validate_edit_content(
     if new_string.len() > max_new_size {
         return Err(ForkedAgentError::ToolError(format!(
             "new_string too large: {} bytes (max {})",
-            new_string.len(), max_new_size
+            new_string.len(),
+            max_new_size
         )));
     }
 
@@ -468,7 +472,7 @@ async fn execute_forked_tool(
 ) -> Result<String, ForkedAgentError> {
     // 首先检查权限
     match can_use_tool(tool_name, input) {
-        ToolPermission::Allow => {},
+        ToolPermission::Allow => {}
         ToolPermission::Deny { message } => {
             // 记录 Layer 7 tool_denied 事件
             crate::memory_event!(layer7, tool_denied, tool_name, &message);
@@ -710,7 +714,9 @@ fn simple_glob_match(pattern: &str, name: &str) -> bool {
 ///     ..Default::default()
 /// }).await?;
 /// ```
-pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentResult, ForkedAgentError> {
+pub async fn run_forked_agent(
+    params: ForkedAgentParams,
+) -> Result<ForkedAgentResult, ForkedAgentError> {
     let start_time = Instant::now();
     let mut output_messages = Vec::new();
     let mut total_usage = UsageMetrics::default();
@@ -727,7 +733,10 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
     // 检查是否已中止
     if context.abort_controller.is_aborted() {
         return Err(ForkedAgentError::Aborted(
-            context.abort_controller.reason().unwrap_or_else(|| "Aborted".to_string())
+            context
+                .abort_controller
+                .reason()
+                .unwrap_or_else(|| "Aborted".to_string()),
         ));
     }
 
@@ -741,7 +750,8 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
         .collect();
 
     // 添加系统提示
-    let system_prompt = params.system_prompt
+    let system_prompt = params
+        .system_prompt
         .clone()
         .unwrap_or_else(|| (*params.cache_safe_params.system_prompt).clone());
 
@@ -759,7 +769,9 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
     );
 
     // 记录 Layer 7 agent_spawned 事件
-    memory_event!(layer7, agent_spawned,
+    memory_event!(
+        layer7,
+        agent_spawned,
         params.fork_label,
         params.max_turns.unwrap_or(5),
         "main"
@@ -770,11 +782,7 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
         Some(pool) => pool,
         None => {
             // 记录 Layer 7 agent_failed 事件（Provider 未配置）
-            memory_event!(layer7, agent_failed,
-                params.fork_label,
-                "no_provider",
-                0
-            );
+            memory_event!(layer7, agent_failed, params.fork_label, "no_provider", 0);
             return Err(ForkedAgentError::NoProviderAvailable);
         }
     };
@@ -784,11 +792,15 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
         PROVIDER_RETRY_MAX_ATTEMPTS,
         PROVIDER_RETRY_INITIAL_DELAY_MS,
         PROVIDER_RETRY_MAX_DELAY_MS,
-    ).await {
+    )
+    .await
+    {
         Ok(p) => p,
         Err(e) => {
             // 记录 Layer 7 agent_failed 事件（Provider 获取失败）
-            memory_event!(layer7, agent_failed,
+            memory_event!(
+                layer7,
+                agent_failed,
                 params.fork_label,
                 "provider_acquire_failed",
                 0
@@ -810,13 +822,12 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
                 "[forked_agent] aborted"
             );
             // 记录 Layer 7 agent_failed 事件
-            memory_event!(layer7, agent_failed,
-                params.fork_label,
-                "aborted",
-                turn
-            );
+            memory_event!(layer7, agent_failed, params.fork_label, "aborted", turn);
             return Err(ForkedAgentError::Aborted(
-                context.abort_controller.reason().unwrap_or_else(|| "Aborted".to_string())
+                context
+                    .abort_controller
+                    .reason()
+                    .unwrap_or_else(|| "Aborted".to_string()),
             ));
         }
 
@@ -831,11 +842,7 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
                     "[forked_agent] LLM call failed"
                 );
                 // 记录 Layer 7 agent_failed 事件
-                memory_event!(layer7, agent_failed,
-                    params.fork_label,
-                    "llm_error",
-                    turn
-                );
+                memory_event!(layer7, agent_failed, params.fork_label, "llm_error", turn);
                 return Err(ForkedAgentError::ProviderError(format!("{}", e)));
             }
         };
@@ -843,10 +850,22 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
         // 提取用量
         if !response.usage.is_null() {
             let usage = &response.usage;
-            let input = usage.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-            let output = usage.get("output_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-            let cache_read = usage.get("cache_read_input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-            let cache_creation = usage.get("cache_creation_input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+            let input = usage
+                .get("input_tokens")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let output = usage
+                .get("output_tokens")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let cache_read = usage
+                .get("cache_read_input_tokens")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let cache_creation = usage
+                .get("cache_creation_input_tokens")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
             total_usage.accumulate(input, output, cache_read, cache_creation);
         }
 
@@ -895,11 +914,8 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
                 );
 
                 // 执行工具
-                let tool_result = execute_forked_tool(
-                    tool_name,
-                    tool_input,
-                    &params.can_use_tool,
-                ).await;
+                let tool_result =
+                    execute_forked_tool(tool_name, tool_input, &params.can_use_tool).await;
 
                 // 构建工具结果消息，包含详细的错误上下文
                 let result_content = match tool_result {
@@ -959,7 +975,9 @@ pub async fn run_forked_agent(params: ForkedAgentParams) -> Result<ForkedAgentRe
     );
 
     // 记录 Layer 7 agent_completed 事件（带 duration）
-    memory_event!(layer7, agent_completed_with_duration,
+    memory_event!(
+        layer7,
+        agent_completed_with_duration,
         params.fork_label,
         max_turns,
         total_usage.input_tokens + total_usage.output_tokens,

@@ -10,9 +10,8 @@ use blockcell_core::{Error, Result};
 use serde_json::{json, Value};
 
 use crate::napcat::common::{
-    build_description, build_napcat_permissions, check_channel,
-    get_sender_id, resolve_account_id, NapCatPermissionChecker, PermissionResult, RiskLevel,
-    call_api, ApiRequest,
+    build_description, build_napcat_permissions, call_api, check_channel, get_sender_id,
+    resolve_account_id, ApiRequest, NapCatPermissionChecker, PermissionResult, RiskLevel,
 };
 use crate::{Tool, ToolContext, ToolSchema};
 
@@ -59,7 +58,8 @@ impl Tool for NapcatGetGroupListTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_group_list(None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -111,7 +111,9 @@ impl Tool for NapcatGetGroupInfoTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         Ok(())
     }
@@ -124,11 +126,15 @@ impl Tool for NapcatGetGroupInfoTool {
         check_channel(&ctx)?;
 
         let group_id = params.get("group_id").and_then(|v| v.as_str()).unwrap();
-        let no_cache = params.get("no_cache").and_then(|v| v.as_bool()).unwrap_or(false);
+        let no_cache = params
+            .get("no_cache")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_group_info(group_id, no_cache, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -176,7 +182,9 @@ impl Tool for NapcatGetGroupMemberListTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         Ok(())
     }
@@ -192,7 +200,8 @@ impl Tool for NapcatGetGroupMemberListTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_group_member_list(group_id, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -249,10 +258,14 @@ impl Tool for NapcatGetGroupMemberInfoTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
         Ok(())
     }
@@ -266,11 +279,15 @@ impl Tool for NapcatGetGroupMemberInfoTool {
 
         let group_id = params.get("group_id").and_then(|v| v.as_str()).unwrap();
         let user_id = params.get("user_id").and_then(|v| v.as_str()).unwrap();
-        let no_cache = params.get("no_cache").and_then(|v| v.as_bool()).unwrap_or(false);
+        let no_cache = params
+            .get("no_cache")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::get_group_member_info(group_id, user_id, no_cache, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -293,11 +310,7 @@ impl Tool for NapcatGetGroupMemberInfoTool {
 // =============================================================================
 
 /// Base function to check admin permission for group operations.
-fn check_admin_permission(
-    ctx: &ToolContext,
-    tool_name: &str,
-    params: &Value,
-) -> Result<()> {
+fn check_admin_permission(ctx: &ToolContext, tool_name: &str, params: &Value) -> Result<()> {
     let napcat_config = &ctx.config.channels.napcat;
     let checker = NapCatPermissionChecker::new(napcat_config);
 
@@ -373,10 +386,14 @@ impl Tool for NapcatSetGroupKickTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
         Ok(())
     }
@@ -395,7 +412,8 @@ impl Tool for NapcatSetGroupKickTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_group_kick(group_id, user_id, reject_add_request, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -458,10 +476,14 @@ impl Tool for NapcatSetGroupBanTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
         Ok(())
     }
@@ -476,11 +498,15 @@ impl Tool for NapcatSetGroupBanTool {
 
         let group_id = params.get("group_id").and_then(|v| v.as_str()).unwrap();
         let user_id = params.get("user_id").and_then(|v| v.as_str()).unwrap();
-        let duration = params.get("duration").and_then(|v| v.as_u64()).unwrap_or(1800) as u32;
+        let duration = params
+            .get("duration")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1800) as u32;
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_group_ban(group_id, user_id, duration, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -494,7 +520,8 @@ impl Tool for NapcatSetGroupBanTool {
             group_id = group_id,
             user_id = user_id,
             duration = duration,
-            "User {} in group", action
+            "User {} in group",
+            action
         );
 
         Ok(json!({
@@ -540,10 +567,14 @@ impl Tool for NapcatSetGroupWholeBanTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         if params.get("enable").and_then(|v| v.as_bool()).is_none() {
-            return Err(Error::Validation("Missing required parameter: enable".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: enable".into(),
+            ));
         }
         Ok(())
     }
@@ -561,7 +592,8 @@ impl Tool for NapcatSetGroupWholeBanTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_group_whole_ban(group_id, enable, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -619,13 +651,19 @@ impl Tool for NapcatSetGroupAdminTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
         if params.get("enable").and_then(|v| v.as_bool()).is_none() {
-            return Err(Error::Validation("Missing required parameter: enable".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: enable".into(),
+            ));
         }
         Ok(())
     }
@@ -644,7 +682,8 @@ impl Tool for NapcatSetGroupAdminTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_group_admin(group_id, user_id, enable, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -653,8 +692,18 @@ impl Tool for NapcatSetGroupAdminTool {
             )));
         }
 
-        let action = if enable { "set as admin" } else { "removed as admin" };
-        tracing::info!(group_id = group_id, user_id = user_id, enable = enable, "User {}", action);
+        let action = if enable {
+            "set as admin"
+        } else {
+            "removed as admin"
+        };
+        tracing::info!(
+            group_id = group_id,
+            user_id = user_id,
+            enable = enable,
+            "User {}",
+            action
+        );
 
         Ok(json!({
             "success": true,
@@ -702,10 +751,14 @@ impl Tool for NapcatSetGroupCardTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
         if params.get("card").and_then(|v| v.as_str()).is_none() {
             return Err(Error::Validation("Missing required parameter: card".into()));
@@ -726,7 +779,8 @@ impl Tool for NapcatSetGroupCardTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_group_card(group_id, user_id, card, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -777,10 +831,14 @@ impl Tool for NapcatSetGroupNameTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         if params.get("group_name").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_name".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_name".into(),
+            ));
         }
         Ok(())
     }
@@ -798,7 +856,8 @@ impl Tool for NapcatSetGroupNameTool {
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_group_name(group_id, group_name, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -853,13 +912,23 @@ impl Tool for NapcatSetGroupSpecialTitleTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         if params.get("user_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: user_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: user_id".into(),
+            ));
         }
-        if params.get("special_title").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: special_title".into()));
+        if params
+            .get("special_title")
+            .and_then(|v| v.as_str())
+            .is_none()
+        {
+            return Err(Error::Validation(
+                "Missing required parameter: special_title".into(),
+            ));
         }
         Ok(())
     }
@@ -874,11 +943,15 @@ impl Tool for NapcatSetGroupSpecialTitleTool {
 
         let group_id = params.get("group_id").and_then(|v| v.as_str()).unwrap();
         let user_id = params.get("user_id").and_then(|v| v.as_str()).unwrap();
-        let special_title = params.get("special_title").and_then(|v| v.as_str()).unwrap();
+        let special_title = params
+            .get("special_title")
+            .and_then(|v| v.as_str())
+            .unwrap();
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_group_special_title(group_id, user_id, special_title, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -930,7 +1003,9 @@ impl Tool for NapcatSetGroupLeaveTool {
 
     fn validate(&self, params: &Value) -> Result<()> {
         if params.get("group_id").and_then(|v| v.as_str()).is_none() {
-            return Err(Error::Validation("Missing required parameter: group_id".into()));
+            return Err(Error::Validation(
+                "Missing required parameter: group_id".into(),
+            ));
         }
         Ok(())
     }
@@ -944,11 +1019,15 @@ impl Tool for NapcatSetGroupLeaveTool {
         check_admin_permission(&ctx, "napcat_set_group_leave", &params)?;
 
         let group_id = params.get("group_id").and_then(|v| v.as_str()).unwrap();
-        let is_dismiss = params.get("is_dismiss").and_then(|v| v.as_bool()).unwrap_or(false);
+        let is_dismiss = params
+            .get("is_dismiss")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let account_id = resolve_account_id(&ctx, &params);
 
         let request = ApiRequest::set_group_leave(group_id, is_dismiss, None);
-        let response = call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
+        let response =
+            call_api(&ctx.config.channels.napcat, account_id.as_deref(), request).await?;
 
         if !response.is_success() {
             return Err(Error::Tool(format!(
@@ -957,7 +1036,11 @@ impl Tool for NapcatSetGroupLeaveTool {
             )));
         }
 
-        tracing::warn!(group_id = group_id, is_dismiss = is_dismiss, "Bot left group");
+        tracing::warn!(
+            group_id = group_id,
+            is_dismiss = is_dismiss,
+            "Bot left group"
+        );
 
         Ok(json!({
             "success": true,

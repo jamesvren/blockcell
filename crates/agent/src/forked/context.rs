@@ -3,9 +3,9 @@
 //! 定义 Forked Agent 与父代理的状态隔离机制。
 //! 可变状态必须克隆以保持隔离，共享状态保证缓存命中。
 
+use blockcell_core::types::ChatMessage;
 use std::sync::Arc;
 use uuid::Uuid;
-use blockcell_core::types::ChatMessage;
 
 // 重新导出 ContentReplacementState，避免重复定义
 pub use crate::response_cache::ContentReplacementState;
@@ -141,7 +141,8 @@ impl AbortController {
 
     /// 中止操作
     pub fn abort(&self, reason: Option<String>) {
-        self.aborted.store(true, std::sync::atomic::Ordering::Release);
+        self.aborted
+            .store(true, std::sync::atomic::Ordering::Release);
         if let Some(r) = reason {
             match self.reason.write() {
                 Ok(mut guard) => {
@@ -308,16 +309,10 @@ mod tests {
     fn test_content_replacement_state() {
         let mut state = ContentReplacementState::new();
 
-        state.set_replacement(
-            "tool-1".to_string(),
-            "replacement content".to_string(),
-        );
+        state.set_replacement("tool-1".to_string(), "replacement content".to_string());
 
         assert!(state.is_seen("tool-1"));
-        assert_eq!(
-            state.get_replacement("tool-1"),
-            Some("replacement content")
-        );
+        assert_eq!(state.get_replacement("tool-1"), Some("replacement content"));
 
         let cloned = state.clone_state();
         assert!(cloned.is_seen("tool-1"));

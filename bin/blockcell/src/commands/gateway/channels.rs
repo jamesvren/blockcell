@@ -2,8 +2,8 @@ use super::*;
 use blockcell_core::config::{parse_json5_value, write_json5_pretty};
 
 const SUPPORTED_OWNER_CHANNELS: [&str; 11] = [
-    "telegram", "whatsapp", "feishu", "slack", "discord", "dingtalk", "wecom", "lark", "qq", "napcat",
-    "weixin",
+    "telegram", "whatsapp", "feishu", "slack", "discord", "dingtalk", "wecom", "lark", "qq",
+    "napcat", "weixin",
 ];
 
 fn load_config_or_state(state: &GatewayState) -> Config {
@@ -424,13 +424,7 @@ fn known_account_ids(cfg: &Config, channel: &str) -> Vec<String> {
             .keys()
             .cloned()
             .collect::<Vec<_>>(),
-        "qq" => cfg
-            .channels
-            .qq
-            .accounts
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>(),
+        "qq" => cfg.channels.qq.accounts.keys().cloned().collect::<Vec<_>>(),
         "napcat" => cfg
             .channels
             .napcat

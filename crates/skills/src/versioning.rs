@@ -303,11 +303,16 @@ impl VersionManager {
         Self::primary_skill_file(skill_dir)
     }
 
-    fn detect_skill_layout_and_source_path(skill_dir: &Path) -> (Option<SkillLayout>, Option<String>) {
+    fn detect_skill_layout_and_source_path(
+        skill_dir: &Path,
+    ) -> (Option<SkillLayout>, Option<String>) {
         let has_skill_md = skill_dir.join("SKILL.md").exists();
 
         if skill_dir.join("SKILL.rhai").exists() {
-            return (Some(SkillLayout::RhaiOrchestration), Some("SKILL.rhai".to_string()));
+            return (
+                Some(SkillLayout::RhaiOrchestration),
+                Some("SKILL.rhai".to_string()),
+            );
         }
 
         if skill_dir.join("SKILL.py").exists() {
@@ -431,7 +436,10 @@ impl VersionManager {
                         continue;
                     }
                     let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                    if matches!(file_name, "SKILL.md" | "SKILL.py" | "SKILL.rhai" | "meta.yaml" | "meta.json") {
+                    if matches!(
+                        file_name,
+                        "SKILL.md" | "SKILL.py" | "SKILL.rhai" | "meta.yaml" | "meta.json"
+                    ) {
                         continue;
                     }
                     let ext_ok = path
@@ -493,7 +501,10 @@ impl VersionManager {
         for entry in std::fs::read_dir(skill_dir)? {
             let entry = entry?;
             let file_name = entry.file_name();
-            if matches!(file_name.to_str(), Some("versions") | Some("version_history.json")) {
+            if matches!(
+                file_name.to_str(),
+                Some("versions") | Some("version_history.json")
+            ) {
                 continue;
             }
 
@@ -527,7 +538,11 @@ impl VersionManager {
 
         let skill_dir = self.skills_dir.join(skill_name);
 
-        Self::copy_dir_contents(&skill_dir, &snapshot_dir, &["versions", "version_history.json", "version.json"])?;
+        Self::copy_dir_contents(
+            &skill_dir,
+            &snapshot_dir,
+            &["versions", "version_history.json", "version.json"],
+        )?;
 
         // 保存版本元数据
         let version_meta = serde_json::to_string_pretty(version)?;
@@ -637,7 +652,8 @@ impl VersionManager {
         let mut version: SkillVersion = serde_json::from_str(&version_meta_content)?;
 
         if version.layout.is_none() || version.source_path.is_none() {
-            let (layout, source_path) = Self::detect_skill_layout_and_source_path(&temp_dir.join(skill_name));
+            let (layout, source_path) =
+                Self::detect_skill_layout_and_source_path(&temp_dir.join(skill_name));
             if version.layout.is_none() {
                 version.layout = layout;
             }
@@ -780,15 +796,21 @@ mod tests {
         assert!(skill_dir.join("versions/v1/scripts/run.sh").exists());
 
         std::fs::write(skill_dir.join("SKILL.md"), "# mutated\n").expect("mutate SKILL.md");
-        std::fs::write(skill_dir.join("scripts/extra.sh"), "#!/bin/sh\necho extra\n")
-            .expect("write extra script");
+        std::fs::write(
+            skill_dir.join("scripts/extra.sh"),
+            "#!/bin/sh\necho extra\n",
+        )
+        .expect("write extra script");
         std::fs::create_dir_all(skill_dir.join("bin")).expect("create bin dir");
         std::fs::write(skill_dir.join("bin/helper.sh"), "#!/bin/sh\necho helper\n")
             .expect("write helper script");
 
         vm.switch_to_version(skill_name, "v1").expect("restore v1");
 
-        assert_eq!(std::fs::read_to_string(skill_dir.join("SKILL.md")).unwrap(), "# restore skill\n");
+        assert_eq!(
+            std::fs::read_to_string(skill_dir.join("SKILL.md")).unwrap(),
+            "# restore skill\n"
+        );
         assert!(skill_dir.join("scripts/run.sh").exists());
         assert!(!skill_dir.join("scripts/extra.sh").exists());
         assert!(!skill_dir.join("bin/helper.sh").exists());
@@ -820,7 +842,10 @@ mod tests {
 
         assert_eq!(imported.version, "v2");
         assert!(skill_dir.join("versions/v2/bin/run.sh").exists());
-        assert_eq!(std::fs::read_to_string(skill_dir.join("versions/v2/bin/run.sh")).unwrap(), "#!/bin/sh\necho run\n");
+        assert_eq!(
+            std::fs::read_to_string(skill_dir.join("versions/v2/bin/run.sh")).unwrap(),
+            "#!/bin/sh\necho run\n"
+        );
 
         let _ = std::fs::remove_dir_all(skills_dir);
     }
@@ -878,8 +903,11 @@ mod tests {
         std::fs::create_dir_all(skill_dir.join("scripts")).expect("create scripts dir");
         std::fs::write(skill_dir.join("SKILL.md"), "# hybrid skill\n").expect("write SKILL.md");
         std::fs::write(skill_dir.join("SKILL.py"), "print('hybrid')\n").expect("write SKILL.py");
-        std::fs::write(skill_dir.join("scripts/helper.sh"), "#!/bin/sh\necho helper\n")
-            .expect("write helper script");
+        std::fs::write(
+            skill_dir.join("scripts/helper.sh"),
+            "#!/bin/sh\necho helper\n",
+        )
+        .expect("write helper script");
 
         let vm = VersionManager::new(skills_dir.clone());
         let version = vm
@@ -891,12 +919,21 @@ mod tests {
         assert!(skill_dir.join("versions/v1/SKILL.py").exists());
         assert!(skill_dir.join("versions/v1/scripts/helper.sh").exists());
 
-        std::fs::write(skill_dir.join("scripts/helper.sh"), "#!/bin/sh\necho mutated\n")
-            .expect("mutate helper script");
+        std::fs::write(
+            skill_dir.join("scripts/helper.sh"),
+            "#!/bin/sh\necho mutated\n",
+        )
+        .expect("mutate helper script");
         vm.switch_to_version(skill_name, "v1").expect("restore v1");
 
-        assert_eq!(std::fs::read_to_string(skill_dir.join("SKILL.py")).unwrap(), "print('hybrid')\n");
-        assert_eq!(std::fs::read_to_string(skill_dir.join("scripts/helper.sh")).unwrap(), "#!/bin/sh\necho helper\n");
+        assert_eq!(
+            std::fs::read_to_string(skill_dir.join("SKILL.py")).unwrap(),
+            "print('hybrid')\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(skill_dir.join("scripts/helper.sh")).unwrap(),
+            "#!/bin/sh\necho helper\n"
+        );
 
         let _ = std::fs::remove_dir_all(skills_dir);
     }

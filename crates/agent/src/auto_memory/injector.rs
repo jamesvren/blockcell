@@ -3,8 +3,8 @@
 //! 加载四种类型记忆文件并注入到 Agent 系统提示中，
 //! 按优先级顺序注入，遵守 token 预算限制。
 
-use crate::token::estimate_tokens;
 use super::{MemoryType, MAX_MEMORY_FILE_TOKENS};
+use crate::token::estimate_tokens;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -180,10 +180,26 @@ impl MemoryInjector {
     /// 获取各类型记忆的统计信息 (user, project, feedback, reference)
     /// 用于 Layer 5 injection_completed 事件
     pub fn memory_counts(&self) -> (u64, u64, u64, u64) {
-        let user = if self.cache.contains_key(&MemoryType::User) { 1 } else { 0 };
-        let project = if self.cache.contains_key(&MemoryType::Project) { 1 } else { 0 };
-        let feedback = if self.cache.contains_key(&MemoryType::Feedback) { 1 } else { 0 };
-        let reference = if self.cache.contains_key(&MemoryType::Reference) { 1 } else { 0 };
+        let user = if self.cache.contains_key(&MemoryType::User) {
+            1
+        } else {
+            0
+        };
+        let project = if self.cache.contains_key(&MemoryType::Project) {
+            1
+        } else {
+            0
+        };
+        let feedback = if self.cache.contains_key(&MemoryType::Feedback) {
+            1
+        } else {
+            0
+        };
+        let reference = if self.cache.contains_key(&MemoryType::Reference) {
+            1
+        } else {
+            0
+        };
         (user, project, feedback, reference)
     }
 }
@@ -202,7 +218,8 @@ fn truncate_content(content: &str, max_tokens: usize) -> String {
         byte_budget
     } else {
         // 向前查找最近的字符边界
-        content.char_indices()
+        content
+            .char_indices()
             .take_while(|(idx, _)| *idx <= byte_budget)
             .last()
             .map(|(idx, _)| idx)
@@ -212,23 +229,14 @@ fn truncate_content(content: &str, max_tokens: usize) -> String {
     // 尝试在段落边界截断
     let truncated = &content[..safe_boundary];
     if let Some(last_para) = truncated.rfind("\n\n") {
-        format!(
-            "{}\n\n[... content truncated ...]",
-            &content[..last_para]
-        )
+        format!("{}\n\n[... content truncated ...]", &content[..last_para])
     } else {
-        format!(
-            "{}\n\n[... content truncated ...]",
-            truncated
-        )
+        format!("{}\n\n[... content truncated ...]", truncated)
     }
 }
 
 /// 格式化记忆用于上下文注入
-pub fn format_memory_for_context(
-    memory_type: MemoryType,
-    content: &str,
-) -> String {
+pub fn format_memory_for_context(memory_type: MemoryType, content: &str) -> String {
     format!(
         "<{}>\n{}\n</{}>",
         memory_type.filename().replace(".md", ""),
@@ -305,10 +313,7 @@ mod tests {
 
     #[test]
     fn test_format_memory_for_context() {
-        let formatted = format_memory_for_context(
-            MemoryType::User,
-            "Test content",
-        );
+        let formatted = format_memory_for_context(MemoryType::User, "Test content");
 
         assert!(formatted.starts_with("<user>"));
         assert!(formatted.contains("Test content"));
@@ -318,7 +323,7 @@ mod tests {
     #[test]
     fn test_collect_memories_respects_budget() {
         let config = InjectionConfig {
-            max_tokens: 200,  // 足够小的预算以触发截断，但 > 100 以确保 remaining > 100
+            max_tokens: 200, // 足够小的预算以触发截断，但 > 100 以确保 remaining > 100
             priority_order: vec![MemoryType::User, MemoryType::Project],
         };
         let mut injector = MemoryInjector::new(config);
@@ -327,7 +332,7 @@ mod tests {
         // 使用更多字符确保超过 max_tokens
         injector.cache.insert(
             MemoryType::User,
-            "A".repeat(10000),  // tiktoken 会压缩重复字符，使用更多字符
+            "A".repeat(10000), // tiktoken 会压缩重复字符，使用更多字符
         );
 
         let injected = injector.collect_memories_to_inject();
@@ -335,7 +340,8 @@ mod tests {
         assert_eq!(injected.len(), 1);
         // 检查截断标记存在
         assert!(
-            injected[0].content.contains("[... content truncated ...]") || injected[0].content.len() < 10000,
+            injected[0].content.contains("[... content truncated ...]")
+                || injected[0].content.len() < 10000,
             "Content should be truncated or smaller than original"
         );
     }

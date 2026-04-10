@@ -577,18 +577,26 @@ pub(super) async fn handle_evolution_resume(
 ) -> impl IntoResponse {
     let records_dir = state.paths.workspace().join("evolution_records");
     let path = records_dir.join(format!("{}.json", evolution_id));
-    
+
     if path.exists() {
         let record_data = match std::fs::read_to_string(&path) {
             Ok(data) => data,
-            Err(e) => return Json(serde_json::json!({ "error": format!("Failed to read record: {}", e) })),
+            Err(e) => {
+                return Json(
+                    serde_json::json!({ "error": format!("Failed to read record: {}", e) }),
+                )
+            }
         };
-        
+
         let mut record: serde_json::Value = match serde_json::from_str(&record_data) {
             Ok(r) => r,
-            Err(e) => return Json(serde_json::json!({ "error": format!("Failed to parse record: {}", e) })),
+            Err(e) => {
+                return Json(
+                    serde_json::json!({ "error": format!("Failed to parse record: {}", e) }),
+                )
+            }
         };
-        
+
         // Check if evolution is stopped
         let status = record.get("status").and_then(|s| s.as_str()).unwrap_or("");
         if status != "Stopped" {
@@ -596,34 +604,34 @@ pub(super) async fn handle_evolution_resume(
                 "error": format!("Evolution is not stopped (status: {})", status)
             }));
         }
-        
+
         // Get the previous status from context if available, otherwise default to Triggered
         let previous_status = record
             .get("context")
             .and_then(|c| c.get("stopped_from_status"))
             .and_then(|s| s.as_str())
             .unwrap_or("Triggered");
-        
+
         // Restore to previous status
         record["status"] = serde_json::Value::String(previous_status.to_string());
         record["updated_at"] = serde_json::Value::Number(serde_json::Number::from(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_secs()
+                .as_secs(),
         ));
-        
+
         // Remove stop reason from context
         if let Some(context) = record.get_mut("context").and_then(|c| c.as_object_mut()) {
             context.remove("stop_reason");
             context.remove("stopped_from_status");
         }
-        
+
         // Save updated record
         if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&record).unwrap()) {
             return Json(serde_json::json!({ "error": format!("Failed to save record: {}", e) }));
         }
-        
+
         // Broadcast WS event
         let _ = state.ws_broadcast.send(
             serde_json::json!({
@@ -632,14 +640,14 @@ pub(super) async fn handle_evolution_resume(
             })
             .to_string(),
         );
-        
+
         return Json(serde_json::json!({
             "status": "resumed",
             "id": evolution_id,
             "message": "Evolution resumed successfully"
         }));
     }
-    
+
     Json(serde_json::json!({ "error": "Evolution record not found" }))
 }
 
@@ -651,64 +659,80 @@ pub(super) async fn handle_evolution_stop(
     // Try skill evolution records
     let records_dir = state.paths.workspace().join("evolution_records");
     let path = records_dir.join(format!("{}.json", evolution_id));
-    
+
     if path.exists() {
         // Read the record to check status and get skill_name
         let record_data = match std::fs::read_to_string(&path) {
             Ok(data) => data,
-            Err(e) => return Json(serde_json::json!({ "error": format!("Failed to read record: {}", e) })),
+            Err(e) => {
+                return Json(
+                    serde_json::json!({ "error": format!("Failed to read record: {}", e) }),
+                )
+            }
         };
-        
+
         let mut record: serde_json::Value = match serde_json::from_str(&record_data) {
             Ok(r) => r,
-            Err(e) => return Json(serde_json::json!({ "error": format!("Failed to parse record: {}", e) })),
+            Err(e) => {
+                return Json(
+                    serde_json::json!({ "error": format!("Failed to parse record: {}", e) }),
+                )
+            }
         };
-        
+
         // Check if evolution is in progress
         let status = record.get("status").and_then(|s| s.as_str()).unwrap_or("");
-        let in_progress_states = ["Triggered", "Generating", "Generated", "Auditing", "AuditPassed", "CompilePassed", "RollingOut"];
-        
+        let in_progress_states = [
+            "Triggered",
+            "Generating",
+            "Generated",
+            "Auditing",
+            "AuditPassed",
+            "CompilePassed",
+            "RollingOut",
+        ];
+
         if !in_progress_states.contains(&status) {
             return Json(serde_json::json!({
                 "error": format!("Evolution is not in progress (status: {})", status)
             }));
         }
-        
+
         // Save current status before stopping so we can resume from it
         let current_status = status.to_string();
-        
+
         // Update status to Stopped (not Failed, so it can be resumed)
         record["status"] = serde_json::Value::String("Stopped".to_string());
         record["updated_at"] = serde_json::Value::Number(serde_json::Number::from(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_secs()
+                .as_secs(),
         ));
-        
+
         // Add stop reason and save previous status to context
         if let Some(context) = record.get_mut("context").and_then(|c| c.as_object_mut()) {
             context.insert(
                 "stop_reason".to_string(),
-                serde_json::Value::String("Manually stopped by user".to_string())
+                serde_json::Value::String("Manually stopped by user".to_string()),
             );
             context.insert(
                 "stopped_from_status".to_string(),
-                serde_json::Value::String(current_status)
+                serde_json::Value::String(current_status),
             );
         }
-        
+
         // Save updated record
         if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&record).unwrap()) {
             return Json(serde_json::json!({ "error": format!("Failed to save record: {}", e) }));
         }
-        
+
         // Clean up in-memory EvolutionService state
         if let Some(skill_name) = record.get("skill_name").and_then(|s| s.as_str()) {
             let evo_guard = state.evolution_service.lock().await;
             let _ = evo_guard.delete_records_by_skill(skill_name).await;
         }
-        
+
         // Broadcast WS event
         let _ = state.ws_broadcast.send(
             serde_json::json!({
@@ -717,14 +741,14 @@ pub(super) async fn handle_evolution_stop(
             })
             .to_string(),
         );
-        
+
         return Json(serde_json::json!({
             "status": "stopped",
             "id": evolution_id,
             "message": "Evolution stopped successfully"
         }));
     }
-    
+
     Json(serde_json::json!({ "error": "Evolution record not found" }))
 }
 

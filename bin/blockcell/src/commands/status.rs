@@ -19,7 +19,10 @@ fn agent_owner_bindings(config: &Config, agent_id: &str) -> Vec<String> {
             .channel_account_owners
             .iter()
             .flat_map(|(channel, bindings)| {
-                bindings.iter().filter(|(_, owner)| owner.trim() == agent_id).map(move |(account_id, _)| format!("{}:{}", channel, account_id))
+                bindings
+                    .iter()
+                    .filter(|(_, owner)| owner.trim() == agent_id)
+                    .map(move |(account_id, _)| format!("{}:{}", channel, account_id))
             }),
     );
 
@@ -373,7 +376,11 @@ pub async fn run() -> anyhow::Result<()> {
             format!(
                 "✓ enabled (mode: {}, ws: {}){}",
                 config.channels.napcat.mode,
-                if config.channels.napcat.ws_url.is_empty() { "n/a" } else { &config.channels.napcat.ws_url },
+                if config.channels.napcat.ws_url.is_empty() {
+                    "n/a"
+                } else {
+                    &config.channels.napcat.ws_url
+                },
                 owner_suffix("napcat", config.channels.napcat.enabled)
             )
         } else if channel_configured(&config, "napcat") {

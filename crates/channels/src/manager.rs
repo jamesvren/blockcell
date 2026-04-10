@@ -556,20 +556,16 @@ impl ChannelManager {
                 {
                     if !msg.media.is_empty() {
                         for file_path in &msg.media {
-                            if let Err(e) = crate::qq::send_media_message(
-                                &send_config,
-                                &msg.chat_id,
-                                file_path,
-                            )
-                            .await
+                            if let Err(e) =
+                                crate::qq::send_media_message(&send_config, &msg.chat_id, file_path)
+                                    .await
                             {
                                 error!(error = %e, file = %file_path, "QQ: failed to send media");
                             }
                         }
                     }
                     if !msg.content.is_empty() {
-                        crate::qq::send_message(&send_config, &msg.chat_id, &msg.content)
-                            .await?;
+                        crate::qq::send_message(&send_config, &msg.chat_id, &msg.content).await?;
                     }
                 }
             }
@@ -674,17 +670,8 @@ impl ChannelManager {
 
     pub fn get_status(&self) -> Vec<(String, bool, String)> {
         let channels = [
-            "telegram",
-            "whatsapp",
-            "feishu",
-            "slack",
-            "discord",
-            "dingtalk",
-            "wecom",
-            "lark",
-            "qq",
-            "napcat",
-            "weixin",
+            "telegram", "whatsapp", "feishu", "slack", "discord", "dingtalk", "wecom", "lark",
+            "qq", "napcat", "weixin",
         ];
 
         channels

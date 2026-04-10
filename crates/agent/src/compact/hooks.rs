@@ -74,13 +74,19 @@ pub struct PostCompactContext {
 /// Pre-Compact Hook trait
 pub trait PreCompactHook: Send + Sync {
     /// 执行 Hook
-    fn execute(&self, ctx: PreCompactContext) -> Pin<Box<dyn Future<Output = PreCompactResult> + Send>>;
+    fn execute(
+        &self,
+        ctx: PreCompactContext,
+    ) -> Pin<Box<dyn Future<Output = PreCompactResult> + Send>>;
 }
 
 /// Post-Compact Hook trait
 pub trait PostCompactHook: Send + Sync {
     /// 执行 Hook
-    fn execute(&self, ctx: PostCompactContext) -> Pin<Box<dyn Future<Output = PostCompactResult> + Send>>;
+    fn execute(
+        &self,
+        ctx: PostCompactContext,
+    ) -> Pin<Box<dyn Future<Output = PostCompactResult> + Send>>;
 }
 
 /// Compact Hook 注册表
@@ -176,7 +182,10 @@ pub fn default_pre_compact_hook() -> impl PreCompactHook {
 struct DefaultPreCompactHook;
 
 impl PreCompactHook for DefaultPreCompactHook {
-    fn execute(&self, ctx: PreCompactContext) -> Pin<Box<dyn Future<Output = PreCompactResult> + Send>> {
+    fn execute(
+        &self,
+        ctx: PreCompactContext,
+    ) -> Pin<Box<dyn Future<Output = PreCompactResult> + Send>> {
         Box::pin(async move {
             if ctx.has_pending_background_tasks {
                 // 等待后台任务完成
@@ -202,7 +211,10 @@ pub fn default_post_compact_hook() -> impl PostCompactHook {
 struct DefaultPostCompactHook;
 
 impl PostCompactHook for DefaultPostCompactHook {
-    fn execute(&self, ctx: PostCompactContext) -> Pin<Box<dyn Future<Output = PostCompactResult> + Send>> {
+    fn execute(
+        &self,
+        ctx: PostCompactContext,
+    ) -> Pin<Box<dyn Future<Output = PostCompactResult> + Send>> {
         Box::pin(async move {
             // 验证 Session Memory 文件存在
             if let Some(path) = &ctx.session_memory_path {
@@ -270,7 +282,10 @@ impl SessionMemoryRecoveryHook {
 }
 
 impl PostCompactHook for SessionMemoryRecoveryHook {
-    fn execute(&self, _ctx: PostCompactContext) -> Pin<Box<dyn Future<Output = PostCompactResult> + Send>> {
+    fn execute(
+        &self,
+        _ctx: PostCompactContext,
+    ) -> Pin<Box<dyn Future<Output = PostCompactResult> + Send>> {
         let workspace_dir = self.workspace_dir.clone();
         let session_id = self.session_id.clone();
         let template = self.template.clone();
@@ -279,15 +294,16 @@ impl PostCompactHook for SessionMemoryRecoveryHook {
 
         Box::pin(async move {
             use crate::session_memory::recovery::{
-                get_session_memory_path,
+                get_session_memory_content_for_compact, get_session_memory_path,
                 wait_for_session_memory_extraction,
-                get_session_memory_content_for_compact,
             };
 
             let memory_path = get_session_memory_path(&workspace_dir, &session_id);
 
             // 1. 等待提取完成
-            if let Err(e) = wait_for_session_memory_extraction(&memory_path, extraction_started_at).await {
+            if let Err(e) =
+                wait_for_session_memory_extraction(&memory_path, extraction_started_at).await
+            {
                 tracing::warn!(
                     path = %memory_path.display(),
                     error = %e,
@@ -297,7 +313,8 @@ impl PostCompactHook for SessionMemoryRecoveryHook {
             }
 
             // 2. 获取 Session Memory 内容
-            match get_session_memory_content_for_compact(&memory_path, &template, max_tokens).await {
+            match get_session_memory_content_for_compact(&memory_path, &template, max_tokens).await
+            {
                 Ok(content) => {
                     // 3. 检查是否有实际内容
                     if content == template {
@@ -347,7 +364,10 @@ pub fn create_session_memory_recovery_hook(
     template: String,
     max_tokens: usize,
     extraction_started_at: Option<std::time::Instant>,
-) -> impl Fn(PostCompactContext) -> Pin<Box<dyn Future<Output = PostCompactResult> + Send>> + Send + Sync + 'static {
+) -> impl Fn(PostCompactContext) -> Pin<Box<dyn Future<Output = PostCompactResult> + Send>>
+       + Send
+       + Sync
+       + 'static {
     let hook = SessionMemoryRecoveryHook::new(
         workspace_dir,
         session_id,

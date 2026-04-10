@@ -305,9 +305,6 @@ mod tests {
         let loaded = store
             .load_metadata(session_key)
             .expect("load metadata after save");
-        assert_eq!(
-            loaded["skill_state"]["last_skill"],
-            "deep_analysis"
-        );
+        assert_eq!(loaded["skill_state"]["last_skill"], "deep_analysis");
     }
 }

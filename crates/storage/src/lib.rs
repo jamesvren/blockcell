@@ -1,9 +1,9 @@
 pub mod audit;
 pub mod contacts;
-pub mod rabitq_index;
 pub mod memory;
 pub mod memory_contract;
 pub mod memory_service;
+pub mod rabitq_index;
 pub mod retriever;
 pub mod session;
 pub mod vector;

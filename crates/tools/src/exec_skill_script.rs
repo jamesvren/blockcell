@@ -34,9 +34,10 @@ fn parse_args(params: &Value) -> Result<Vec<String>> {
         .unwrap_or_default()
         .into_iter()
         .map(|value| {
-            value.as_str().map(str::to_string).ok_or_else(|| {
-                Error::Validation("`args` must be an array of strings".to_string())
-            })
+            value
+                .as_str()
+                .map(str::to_string)
+                .ok_or_else(|| Error::Validation("`args` must be an array of strings".to_string()))
         })
         .collect()
 }
@@ -54,7 +55,11 @@ fn normalize_process_result(path: &str, result: Value) -> Value {
     })
 }
 
-fn normalize_rhai_result(path: &str, resolved_path: &std::path::Path, result: SkillDispatchResult) -> Value {
+fn normalize_rhai_result(
+    path: &str,
+    resolved_path: &std::path::Path,
+    result: SkillDispatchResult,
+) -> Value {
     json!({
         "runtime": "rhai",
         "path": path,
@@ -137,7 +142,10 @@ impl Tool for ExecSkillScriptTool {
             }
         }
 
-        if params.get("context").is_some_and(|value| !value.is_object()) {
+        if params
+            .get("context")
+            .is_some_and(|value| !value.is_object())
+        {
             return Err(Error::Validation(
                 "`context` must be an object when provided".to_string(),
             ));
@@ -284,8 +292,11 @@ mod tests {
     #[tokio::test]
     async fn test_exec_skill_script_runs_top_level_rhai() {
         let skill_dir = temp_skill_dir("blockcell-exec-skill-script-rhai-top");
-        fs::write(skill_dir.join("SKILL.rhai"), r#"set_output("top-level-ok");"#)
-            .expect("write rhai script");
+        fs::write(
+            skill_dir.join("SKILL.rhai"),
+            r#"set_output("top-level-ok");"#,
+        )
+        .expect("write rhai script");
 
         let result = run_exec_skill_script(skill_dir, json!({"path": "SKILL.rhai"})).await;
         assert_eq!(result["runtime"], "rhai");
@@ -304,8 +315,8 @@ mod tests {
         )
         .expect("write nested rhai script");
 
-        let result = run_exec_skill_script(skill_dir, json!({"path": "scripts/nested/flow.rhai"}))
-            .await;
+        let result =
+            run_exec_skill_script(skill_dir, json!({"path": "scripts/nested/flow.rhai"})).await;
         assert_eq!(result["runtime"], "rhai");
         assert_eq!(result["success"], true);
         assert_eq!(result["output"]["message"], "nested-ok");
@@ -336,12 +347,10 @@ mod tests {
         assert_eq!(result["runtime"], "process");
         assert_eq!(result["success"], true);
         assert_eq!(result["exit_code"], 0);
-        assert!(
-            result["stdout"]
-                .as_str()
-                .unwrap_or_default()
-                .contains("process ok")
-        );
+        assert!(result["stdout"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("process ok"));
     }
 
     #[tokio::test]
@@ -363,7 +372,10 @@ mod tests {
         assert_eq!(result["runtime"], "process");
         assert_eq!(result["success"], true);
         assert_eq!(result["exit_code"], 0);
-        assert!(result["stdout"].as_str().unwrap_or_default().contains("cli ok"));
+        assert!(result["stdout"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("cli ok"));
     }
 
     #[tokio::test]

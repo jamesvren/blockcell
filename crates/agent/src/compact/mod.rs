@@ -12,24 +12,25 @@
 //! - 技能: 25,000 tokens
 //! - Session Memory: 12,000 tokens
 
-mod summary;
-mod recovery;
-mod hooks;
 mod file_tracker;
+mod hooks;
+mod recovery;
 mod skill_tracker;
+mod summary;
 
-pub use summary::{CompactSummary, CompactSummarySection, CompactSummaryResult, generate_compact_summary};
-pub use recovery::{
-    CompactRecoveryContext, FileRecoveryState, SkillRecoveryState,
-    create_recovery_context, generate_recovery_message,
-};
+pub use file_tracker::{FileRecord, FileTracker};
 pub use hooks::{
-    PreCompactHook, PostCompactHook, CompactHookRegistry,
-    PreCompactContext, PostCompactContext,
-    PreCompactResult, PostCompactResult,
+    CompactHookRegistry, PostCompactContext, PostCompactHook, PostCompactResult, PreCompactContext,
+    PreCompactHook, PreCompactResult,
 };
-pub use file_tracker::{FileTracker, FileRecord};
-pub use skill_tracker::{SkillTracker, SkillRecord};
+pub use recovery::{
+    create_recovery_context, generate_recovery_message, CompactRecoveryContext, FileRecoveryState,
+    SkillRecoveryState,
+};
+pub use skill_tracker::{SkillRecord, SkillTracker};
+pub use summary::{
+    generate_compact_summary, CompactSummary, CompactSummaryResult, CompactSummarySection,
+};
 
 use crate::token::estimate_tokens;
 
@@ -54,7 +55,7 @@ Do not attempt to call any tools, read files, or execute commands."#;
 pub fn should_compact(
     current_tokens: usize,
     budget_tokens: usize,
-    threshold: f64,  // 默认 0.8
+    threshold: f64, // 默认 0.8
 ) -> bool {
     current_tokens >= (budget_tokens as f64 * threshold) as usize
 }
@@ -179,7 +180,11 @@ pub fn build_recovery_message(
 
         for file in &files {
             let truncated_summary = truncate_to_tokens(&file.summary, MAX_SINGLE_FILE_TOKENS);
-            recovery.push_str(&format!("### {}\n```\n{}\n```\n\n", file.path.display(), truncated_summary));
+            recovery.push_str(&format!(
+                "### {}\n```\n{}\n```\n\n",
+                file.path.display(),
+                truncated_summary
+            ));
             total_tokens += file.estimated_tokens.min(MAX_SINGLE_FILE_TOKENS);
         }
     }
@@ -192,7 +197,10 @@ pub fn build_recovery_message(
 
         for skill in &skills {
             let truncated_summary = truncate_to_tokens(&skill.summary, MAX_SINGLE_FILE_TOKENS);
-            recovery.push_str(&format!("### {}\n```\n{}\n```\n\n", skill.name, truncated_summary));
+            recovery.push_str(&format!(
+                "### {}\n```\n{}\n```\n\n",
+                skill.name, truncated_summary
+            ));
             total_tokens += skill.estimated_tokens.min(MAX_SINGLE_FILE_TOKENS);
         }
     }
@@ -295,8 +303,8 @@ mod tests {
             "Recovery content".to_string(),
             100_000,
             20_000,
-            80_000,  // cache_read_tokens
-            10_000,  // cache_creation_tokens
+            80_000, // cache_read_tokens
+            10_000, // cache_creation_tokens
         );
 
         assert!(result.success);

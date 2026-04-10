@@ -11,8 +11,8 @@ use blockcell_core::types::ChatMessage;
 use serde_json::Value;
 use std::collections::HashSet;
 
-use crate::token::{estimate_tokens};
 use crate::memory_event;
+use crate::token::estimate_tokens;
 
 /// 历史分析结果
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,7 +73,9 @@ impl<'a> HistoryProjector<'a> {
             if let Some(tool_calls) = &msg.tool_calls {
                 for call in tool_calls {
                     if is_internal_skill_trace(&call.name) {
-                        if let Some(name) = call.arguments.get("skill_name").and_then(|v| v.as_str()) {
+                        if let Some(name) =
+                            call.arguments.get("skill_name").and_then(|v| v.as_str())
+                        {
                             let trimmed = name.trim();
                             if !trimmed.is_empty() {
                                 return Some(trimmed.to_string());
@@ -106,8 +108,14 @@ use serde::{Deserialize, Serialize};
 ///
 /// 这些工具的输出可以在时间触发时被清理
 pub const COMPACTABLE_TOOLS: &[&str] = &[
-    "read_file", "shell", "grep", "glob",
-    "web_search", "web_fetch", "file_edit", "file_write",
+    "read_file",
+    "shell",
+    "grep",
+    "glob",
+    "web_search",
+    "web_fetch",
+    "file_edit",
+    "file_write",
 ];
 
 /// 时间触发配置
@@ -218,10 +226,13 @@ impl<'a> HistoryProjector<'a> {
         query_source: Option<&str>,
         config: &TimeBasedMCConfig,
     ) -> Option<Vec<ChatMessage>> {
-        let trigger = self.evaluate_time_based_trigger(last_assistant_timestamp, query_source, config)?;
+        let trigger =
+            self.evaluate_time_based_trigger(last_assistant_timestamp, query_source, config)?;
 
         // 记录 Layer 2 触发事件
-        memory_event!(layer2, triggered,
+        memory_event!(
+            layer2,
+            triggered,
             trigger.gap_minutes,
             config.gap_threshold_minutes
         );
@@ -299,7 +310,8 @@ fn maybe_clear_tool_result(message: &ChatMessage, clear_set: &HashSet<String>) -
     if let Some(tool_call_id) = &message.tool_call_id {
         if clear_set.contains(tool_call_id) {
             let mut cleared = message.clone();
-            cleared.content = Value::String(crate::response_cache::TIME_BASED_MC_CLEARED_MESSAGE.to_string());
+            cleared.content =
+                Value::String(crate::response_cache::TIME_BASED_MC_CLEARED_MESSAGE.to_string());
             return cleared;
         }
     }

@@ -348,7 +348,11 @@ impl OpenAIProvider {
             scan = &value_str[close_idx + "</parameter>".len()..];
         }
 
-        if args.is_empty() { None } else { Some(args) }
+        if args.is_empty() {
+            None
+        } else {
+            Some(args)
+        }
     }
 
     fn parse_loose_argument_map(raw: &str) -> Option<Map<String, Value>> {
@@ -444,10 +448,7 @@ impl OpenAIProvider {
         }
 
         let dash_args = Self::parse_dash_args(trimmed);
-        if dash_args
-            .as_object()
-            .is_some_and(|map| !map.is_empty())
-        {
+        if dash_args.as_object().is_some_and(|map| !map.is_empty()) {
             return Ok(dash_args);
         }
 
@@ -1330,7 +1331,10 @@ impl Provider for OpenAIProvider {
 
         let (api_messages, api_tools) =
             if tools_available && !matches!(mode, ToolCallMode::Text | ToolCallMode::None) {
-                (Self::sanitize_messages_for_native_tools(messages), tools.to_vec())
+                (
+                    Self::sanitize_messages_for_native_tools(messages),
+                    tools.to_vec(),
+                )
             } else if tools_available {
                 (Self::inject_tools_into_messages(messages, tools), vec![])
             } else {

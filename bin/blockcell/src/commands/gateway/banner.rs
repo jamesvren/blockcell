@@ -353,7 +353,15 @@ pub(super) fn print_startup_banner(
             enabled: ch.qq.enabled,
             configured: blockcell_channels::account::channel_configured(config, "qq"),
             detail: if !ch.qq.app_id.is_empty() {
-                format!("app_id: {}  env: {}", ch.qq.app_id, if ch.qq.environment.is_empty() { "production" } else { &ch.qq.environment })
+                format!(
+                    "app_id: {}  env: {}",
+                    ch.qq.app_id,
+                    if ch.qq.environment.is_empty() {
+                        "production"
+                    } else {
+                        &ch.qq.environment
+                    }
+                )
             } else {
                 "no app_id configured".into()
             },
@@ -376,15 +384,23 @@ pub(super) fn print_startup_banner(
                     }
                     "ws-client" | "client" => {
                         // For ws-client mode, show the remote WebSocket URL
-                        if ch.napcat.ws_url.is_empty() { "-".to_string() } else { ch.napcat.ws_url.clone() }
+                        if ch.napcat.ws_url.is_empty() {
+                            "-".to_string()
+                        } else {
+                            ch.napcat.ws_url.clone()
+                        }
                     }
                     _ => {
                         // Unknown mode, show the remote WebSocket URL as fallback
-                        if ch.napcat.ws_url.is_empty() { "-".to_string() } else { ch.napcat.ws_url.clone() }
+                        if ch.napcat.ws_url.is_empty() {
+                            "-".to_string()
+                        } else {
+                            ch.napcat.ws_url.clone()
+                        }
                     }
                 };
                 format!("mode: {}  conn: {}", mode, conn_display)
-            }
+            },
         },
         ChannelInfo {
             id: "weixin",
@@ -476,7 +492,17 @@ pub(super) fn print_startup_banner(
                             .qq
                             .accounts
                             .get(account)
-                            .map(|acc| format!("app_id: {}  env: {}", acc.app_id, if acc.environment.is_empty() { "production" } else { &acc.environment }))
+                            .map(|acc| {
+                                format!(
+                                    "app_id: {}  env: {}",
+                                    acc.app_id,
+                                    if acc.environment.is_empty() {
+                                        "production"
+                                    } else {
+                                        &acc.environment
+                                    }
+                                )
+                            })
                             .unwrap_or_else(|| ch_info.detail.clone()),
                         ("napcat", Some(account)) => config
                             .channels
@@ -490,8 +516,11 @@ pub(super) fn print_startup_banner(
                                         // For server mode, show the listening address
                                         let port = acc.server_port.unwrap_or(ch.napcat.server_port);
                                         if port > 0 {
-                                            format!("ws://{}:{}",
-                                                acc.server_host.as_deref().unwrap_or(&ch.napcat.server_host),
+                                            format!(
+                                                "ws://{}:{}",
+                                                acc.server_host
+                                                    .as_deref()
+                                                    .unwrap_or(&ch.napcat.server_host),
                                                 port
                                             )
                                         } else {
@@ -559,7 +588,7 @@ pub(super) fn print_startup_banner(
                         "napcat" => default_marker(
                             config.channels.napcat.default_account_id.as_ref(),
                             account_id,
-                        ),                            
+                        ),
                         "weixin" => default_marker(
                             config.channels.weixin.default_account_id.as_ref(),
                             account_id,

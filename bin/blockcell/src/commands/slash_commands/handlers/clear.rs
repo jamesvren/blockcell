@@ -59,7 +59,11 @@ impl SlashCommand for ClearCommand {
         // 3. 清除 Session Memory 文件
         // 使用 session_file_stem 确保路径兼容性（Windows 不允许冒号）
         let safe_session_key = blockcell_core::session_file_stem(&session_key);
-        let session_dir = ctx.paths.workspace().join("sessions").join(&safe_session_key);
+        let session_dir = ctx
+            .paths
+            .workspace()
+            .join("sessions")
+            .join(&safe_session_key);
         let session_memory_path = session_dir.join("memory.md");
 
         if session_memory_path.exists() {
@@ -130,9 +134,8 @@ impl SlashCommand for ClearCommand {
             "✅ 会话历史已清除 (无持久化数据)\n".to_string()
         } else {
             // 使用 Markdown 列表语法，每条记录前加 `-` 前缀
-            let formatted_results: Vec<String> = results.iter()
-                .map(|r| format!("- {}", r))
-                .collect();
+            let formatted_results: Vec<String> =
+                results.iter().map(|r| format!("- {}", r)).collect();
             format!("📋 会话清除结果:\n{}\n", formatted_results.join("\n"))
         };
 

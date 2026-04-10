@@ -6,12 +6,12 @@
 //!
 //! 任何一项不匹配都会导致缓存失效，因此必须严格控制这些参数的一致性。
 
-use std::sync::Arc;
-use std::collections::HashMap;
 use blockcell_core::types::ChatMessage;
-use tokio::sync::RwLock;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// 工具定义 - 用于缓存键计算
 ///
@@ -28,7 +28,11 @@ pub struct ToolDefinition {
 
 impl ToolDefinition {
     /// 创建新的工具定义
-    pub fn new(name: impl Into<String>, description: impl Into<String>, parameters: serde_json::Value) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        parameters: serde_json::Value,
+    ) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -90,10 +94,7 @@ impl Default for CacheSafeParams {
 
 impl CacheSafeParams {
     /// 创建新的 CacheSafeParams
-    pub fn new(
-        system_prompt: impl Into<String>,
-        model: impl Into<String>,
-    ) -> Self {
+    pub fn new(system_prompt: impl Into<String>, model: impl Into<String>) -> Self {
         Self {
             system_prompt: Arc::new(system_prompt.into()),
             model: model.into(),
@@ -255,7 +256,10 @@ mod tests {
             .with_tools_hash(12345);
 
         assert_eq!(params.user_context.get("key1"), Some(&"value1".to_string()));
-        assert_eq!(params.system_context.get("key2"), Some(&"value2".to_string()));
+        assert_eq!(
+            params.system_context.get("key2"),
+            Some(&"value2".to_string())
+        );
         assert_eq!(params.tools_hash, Some(12345));
     }
 
@@ -273,7 +277,7 @@ mod tests {
         );
         let tool3 = ToolDefinition::new(
             "read_file",
-            "Read file",  // Different description
+            "Read file", // Different description
             serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}}),
         );
 
@@ -298,8 +302,7 @@ mod tests {
             ),
         ];
 
-        let params = CacheSafeParams::new("system", "model")
-            .with_tools(tools.clone());
+        let params = CacheSafeParams::new("system", "model").with_tools(tools.clone());
 
         assert_eq!(params.tools.len(), 2);
         assert!(params.tools_hash.is_some());
@@ -307,15 +310,21 @@ mod tests {
 
     #[test]
     fn test_cache_safe_params_tools_compatibility() {
-        let tools1 = vec![
-            ToolDefinition::new("read_file", "Read file", serde_json::json!({})),
-        ];
-        let tools2 = vec![
-            ToolDefinition::new("read_file", "Read file", serde_json::json!({})),
-        ];
-        let tools3 = vec![
-            ToolDefinition::new("write_file", "Write file", serde_json::json!({})),
-        ];
+        let tools1 = vec![ToolDefinition::new(
+            "read_file",
+            "Read file",
+            serde_json::json!({}),
+        )];
+        let tools2 = vec![ToolDefinition::new(
+            "read_file",
+            "Read file",
+            serde_json::json!({}),
+        )];
+        let tools3 = vec![ToolDefinition::new(
+            "write_file",
+            "Write file",
+            serde_json::json!({}),
+        )];
 
         let p1 = CacheSafeParams::new("system", "model").with_tools(tools1);
         let p2 = CacheSafeParams::new("system", "model").with_tools(tools2);
@@ -329,9 +338,11 @@ mod tests {
 
     #[test]
     fn test_create_cache_safe_params_with_tools() {
-        let tools = vec![
-            ToolDefinition::new("read_file", "Read file", serde_json::json!({})),
-        ];
+        let tools = vec![ToolDefinition::new(
+            "read_file",
+            "Read file",
+            serde_json::json!({}),
+        )];
 
         let params = create_cache_safe_params_with_tools(
             "system prompt",

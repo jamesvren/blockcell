@@ -44,8 +44,8 @@
 //! ```
 
 mod context;
-mod registry;
 pub mod handlers;
+mod registry;
 
 pub use context::*;
 pub use registry::*;
@@ -158,11 +158,7 @@ impl SlashCommandHandler {
     /// - `CommandResult::PermissionDenied` - 命令需要权限，拒绝执行
     /// - `CommandResult::Error` - 命令执行错误
     /// - `CommandResult::ExitRequested` - 请求退出交互模式 (仅 /quit 和 /exit)
-    pub async fn try_handle(
-        &self,
-        input: &str,
-        ctx: &CommandContext,
-    ) -> CommandResult {
+    pub async fn try_handle(&self, input: &str, ctx: &CommandContext) -> CommandResult {
         let input = input.trim();
 
         // 检查是否为斜杠命令：必须以 '/' 开头
@@ -182,8 +178,14 @@ impl SlashCommandHandler {
         // 2. 只能包含字母、数字、连字符和下划线
         // 3. 必须以字母开头
         if cmd_name.is_empty()
-            || !cmd_name.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false)
-            || !cmd_name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            || !cmd_name
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_alphabetic())
+                .unwrap_or(false)
+            || !cmd_name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
         {
             return CommandResult::NotACommand;
         }
@@ -217,7 +219,9 @@ impl SlashCommandHandler {
 
                 // 带超时执行命令
                 let timeout_duration = std::time::Duration::from_secs(command.timeout_secs());
-                return match tokio::time::timeout(timeout_duration, command.execute(args, ctx)).await {
+                return match tokio::time::timeout(timeout_duration, command.execute(args, ctx))
+                    .await
+                {
                     Ok(result) => result,
                     Err(_) => CommandResult::Error(format!(
                         "命令 /{} 执行超时 ({}秒)",

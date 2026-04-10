@@ -505,9 +505,9 @@ impl Tool for MemoryMaintenanceTool {
 mod tests {
     use super::*;
     use blockcell_core::Config;
+    use serde_json::json;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
-    use serde_json::json;
 
     struct CaptureMemoryStore {
         query_calls: Mutex<Vec<Value>>,

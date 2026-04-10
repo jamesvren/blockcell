@@ -41,7 +41,10 @@ impl FileTracker {
     /// 记录文件读取
     pub fn record_read(&mut self, path: PathBuf, content: &str) {
         let summary = if content.len() > self.max_summary_chars {
-            format!("{}...\n[content truncated]", &content[..self.max_summary_chars])
+            format!(
+                "{}...\n[content truncated]",
+                &content[..self.max_summary_chars]
+            )
         } else {
             content.to_string()
         };
@@ -60,7 +63,11 @@ impl FileTracker {
     }
 
     /// 获取最近读取的文件（按时间排序）
-    pub fn get_recent_files(&self, max_files: usize, _max_tokens_per_file: usize) -> Vec<&FileRecord> {
+    pub fn get_recent_files(
+        &self,
+        max_files: usize,
+        _max_tokens_per_file: usize,
+    ) -> Vec<&FileRecord> {
         let mut records: Vec<_> = self.records.values().collect();
 
         // 按读取时间降序排序（最近的优先）
@@ -115,7 +122,10 @@ mod tests {
         let mut tracker = FileTracker::new();
 
         for i in 0..10 {
-            tracker.record_read(PathBuf::from(format!("/file{}.rs", i)), &format!("content {}", i));
+            tracker.record_read(
+                PathBuf::from(format!("/file{}.rs", i)),
+                &format!("content {}", i),
+            );
         }
 
         let recent = tracker.get_recent_files(3, 5000);

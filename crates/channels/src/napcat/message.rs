@@ -28,13 +28,13 @@ mod string_or_number {
             Some(Value::Number(n)) => {
                 if let Some(i) = n.as_i64() {
                     // Try to convert i64 to T
-                    T::from_str(&i.to_string()).map(Some).map_err(|_| {
-                        serde::de::Error::custom("Failed to convert number")
-                    })
+                    T::from_str(&i.to_string())
+                        .map(Some)
+                        .map_err(|_| serde::de::Error::custom("Failed to convert number"))
                 } else if let Some(f) = n.as_f64() {
-                    T::from_str(&f.to_string()).map(Some).map_err(|_| {
-                        serde::de::Error::custom("Failed to convert float")
-                    })
+                    T::from_str(&f.to_string())
+                        .map(Some)
+                        .map_err(|_| serde::de::Error::custom("Failed to convert float"))
                 } else {
                     Err(serde::de::Error::custom("Invalid number"))
                 }
@@ -83,12 +83,11 @@ impl OneBotMessage {
     pub fn to_plain_text(&self) -> String {
         match self {
             OneBotMessage::Text(s) => s.clone(),
-            OneBotMessage::Segments(segs) => {
-                segs.iter()
-                    .filter_map(|seg| seg.to_plain_text())
-                    .collect::<Vec<_>>()
-                    .join("")
-            }
+            OneBotMessage::Segments(segs) => segs
+                .iter()
+                .filter_map(|seg| seg.to_plain_text())
+                .collect::<Vec<_>>()
+                .join(""),
         }
     }
 
@@ -124,9 +123,7 @@ impl OneBotMessage {
         match self {
             OneBotMessage::Text(_) => vec![],
             OneBotMessage::Segments(segs) => {
-                segs.iter()
-                    .filter_map(|seg| seg.get_media_url())
-                    .collect()
+                segs.iter().filter_map(|seg| seg.get_media_url()).collect()
             }
         }
     }
@@ -143,9 +140,7 @@ impl OneBotMessage {
     pub fn to_json(&self) -> Value {
         match self {
             OneBotMessage::Text(s) => Value::String(s.clone()),
-            OneBotMessage::Segments(segs) => {
-                serde_json::to_value(segs).unwrap_or(Value::Null)
-            }
+            OneBotMessage::Segments(segs) => serde_json::to_value(segs).unwrap_or(Value::Null),
         }
     }
 
@@ -154,11 +149,9 @@ impl OneBotMessage {
     pub fn is_at_me(&self, bot_qq: &str) -> bool {
         match self {
             OneBotMessage::Text(_) => false,
-            OneBotMessage::Segments(segs) => {
-                segs.iter().any(|seg| {
-                    matches!(seg, MessageSegment::At { qq, .. } if qq == bot_qq)
-                })
-            }
+            OneBotMessage::Segments(segs) => segs
+                .iter()
+                .any(|seg| matches!(seg, MessageSegment::At { qq, .. } if qq == bot_qq)),
         }
     }
 
@@ -166,9 +159,9 @@ impl OneBotMessage {
     pub fn is_at_all(&self) -> bool {
         match self {
             OneBotMessage::Text(_) => false,
-            OneBotMessage::Segments(segs) => {
-                segs.iter().any(|seg| matches!(seg, MessageSegment::AtAll {}))
-            }
+            OneBotMessage::Segments(segs) => segs
+                .iter()
+                .any(|seg| matches!(seg, MessageSegment::AtAll {})),
         }
     }
 
@@ -224,7 +217,11 @@ pub enum MessageSegment {
         summary: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         sub_type: Option<i32>,
-        #[serde(default, with = "string_or_number", skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            with = "string_or_number",
+            skip_serializing_if = "Option::is_none"
+        )]
         file_size: Option<i64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         cache: Option<bool>,
@@ -238,7 +235,11 @@ pub enum MessageSegment {
         file: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         url: Option<String>,
-        #[serde(default, with = "string_or_number", skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            with = "string_or_number",
+            skip_serializing_if = "Option::is_none"
+        )]
         file_size: Option<i64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         path: Option<String>,
@@ -254,7 +255,11 @@ pub enum MessageSegment {
         file: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         url: Option<String>,
-        #[serde(default, with = "string_or_number", skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            with = "string_or_number",
+            skip_serializing_if = "Option::is_none"
+        )]
         file_size: Option<i64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         thumb: Option<String>,
@@ -353,7 +358,11 @@ pub enum MessageSegment {
         url: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         name: Option<String>,
-        #[serde(default, with = "string_or_number", skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            with = "string_or_number",
+            skip_serializing_if = "Option::is_none"
+        )]
         size: Option<i64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         busid: Option<i64>,
@@ -374,8 +383,12 @@ impl MessageSegment {
             MessageSegment::Record { .. } => Some("[voice]".to_string()),
             MessageSegment::Video { .. } => Some("[video]".to_string()),
             MessageSegment::Face { id, .. } => Some(format!("[face:{}]", id)),
-            MessageSegment::Mface { emoji_id, summary, .. } => {
-                let desc = summary.clone().unwrap_or_else(|| format!("emoji:{}", emoji_id));
+            MessageSegment::Mface {
+                emoji_id, summary, ..
+            } => {
+                let desc = summary
+                    .clone()
+                    .unwrap_or_else(|| format!("emoji:{}", emoji_id));
                 Some(format!("[mface:{}]", desc))
             }
             MessageSegment::Reply { .. } => Some("[reply]".to_string()),
@@ -556,9 +569,7 @@ pub fn build_message(text: &str, media_paths: &[String]) -> OneBotMessage {
 
         let segment = if ["jpg", "jpeg", "png", "gif", "webp", "bmp"].contains(&ext.as_str()) {
             MessageSegment::image(path)
-        } else if ["mp3", "wav", "ogg", "amr", "flac", "aac"]
-            .contains(&ext.as_str())
-        {
+        } else if ["mp3", "wav", "ogg", "amr", "flac", "aac"].contains(&ext.as_str()) {
             MessageSegment::record(path)
         } else if ["mp4", "mov", "avi", "mkv", "flv"].contains(&ext.as_str()) {
             MessageSegment::video(path)
@@ -659,7 +670,13 @@ mod tests {
         let msg = OneBotMessage::from_segments(vec![seg]);
         let media = msg.get_media_urls();
         assert_eq!(media.len(), 1);
-        assert_eq!(media[0], ("http://example.com/test.jpg".to_string(), "image".to_string()));
+        assert_eq!(
+            media[0],
+            (
+                "http://example.com/test.jpg".to_string(),
+                "image".to_string()
+            )
+        );
         assert!(msg.has_media());
     }
 

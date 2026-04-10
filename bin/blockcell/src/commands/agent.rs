@@ -164,7 +164,10 @@ const BUILTIN_TOOLS: &[(&str, &[(&str, &str)])] = &[
             ("napcat_set_essence_msg", "Set essence message"),
             ("napcat_delete_essence_msg", "Delete essence message"),
             ("napcat_get_essence_msg_list", "Get essence message list"),
-            ("napcat_get_group_at_all_remain", "Get group @all remain count"),
+            (
+                "napcat_get_group_at_all_remain",
+                "Get group @all remain count",
+            ),
             ("napcat_get_image", "Get image from message"),
             ("napcat_get_record", "Get voice record from message"),
             ("napcat_download_file", "Download file"),
@@ -867,7 +870,8 @@ pub async fn run(
                             .nth(1)
                             .unwrap_or("default")
                             .to_string(),
-                    ).with_clear_callback(Arc::new({
+                    )
+                    .with_clear_callback(Arc::new({
                         let flag = session_clear_flag_clone.clone();
                         move || {
                             flag.store(true, Ordering::SeqCst);
@@ -1617,7 +1621,6 @@ fn collect_command_items(paths: &Paths) -> Vec<CommandItem> {
 
     items
 }
-
 
 #[cfg(test)]
 mod tests {

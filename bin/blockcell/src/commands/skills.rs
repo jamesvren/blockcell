@@ -4,9 +4,9 @@ use blockcell_core::{build_session_key, Config, InboundMessage, Paths};
 use blockcell_skills::evolution::EvolutionRecord;
 use blockcell_skills::is_builtin_tool;
 use blockcell_skills::SkillTestFixture;
+use blockcell_storage::SessionStore;
 use blockcell_tools::build_tool_registry_for_agent_config;
 use blockcell_tools::mcp::manager::McpManager;
-use blockcell_storage::SessionStore;
 use std::sync::Arc;
 
 use super::memory_store::open_memory_store;
@@ -141,7 +141,10 @@ fn build_fixture_metadata(skill_name: &str, fixture: &SkillTestFixture) -> serde
     let mut metadata = serde_json::Map::new();
     metadata.insert("test_mode".to_string(), serde_json::json!("fixture"));
     metadata.insert("fixture_name".to_string(), serde_json::json!(fixture.name));
-    metadata.insert("fixture_input".to_string(), serde_json::json!(fixture.input));
+    metadata.insert(
+        "fixture_input".to_string(),
+        serde_json::json!(fixture.input),
+    );
     metadata.insert("context".to_string(), fixture.context.clone());
     metadata.insert("params".to_string(), fixture.params.clone());
     metadata.insert("constraints".to_string(), fixture.constraints.clone());
@@ -184,9 +187,7 @@ fn response_matches_expected_output(actual: &str, expected: Option<&str>) -> boo
         return true;
     };
 
-    actual
-        .to_lowercase()
-        .contains(&expected.to_lowercase())
+    actual.to_lowercase().contains(&expected.to_lowercase())
 }
 
 async fn build_skill_test_runtime(paths: &Paths) -> anyhow::Result<AgentRuntime> {
@@ -255,8 +256,8 @@ async fn run_skill_fixtures(
             Ok(response) => {
                 let history = session_store.load(&session_key)?;
                 let actual_tools = collect_fixture_tool_calls(&history);
-                let expected_tools_match = fixture.expected_tools.is_empty()
-                    || actual_tools == fixture.expected_tools;
+                let expected_tools_match =
+                    fixture.expected_tools.is_empty() || actual_tools == fixture.expected_tools;
                 let expected_output_match =
                     response_matches_expected_output(&response, fixture.expected_output.as_deref());
 

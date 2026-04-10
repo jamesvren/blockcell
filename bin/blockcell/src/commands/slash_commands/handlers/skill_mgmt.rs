@@ -36,7 +36,10 @@ impl SlashCommand for ClearSkillsCommand {
         }
 
         let content = if count > 0 {
-            format!("✅ **Cleared all skill evolution records** ({} total)\n", count)
+            format!(
+                "✅ **Cleared all skill evolution records** ({} total)\n",
+                count
+            )
         } else {
             "*(No records to clear)*\n".to_string()
         };

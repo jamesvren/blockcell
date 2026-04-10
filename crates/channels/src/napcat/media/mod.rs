@@ -68,7 +68,8 @@ pub use downloader::{
 pub use local_file::{get_file_size, is_valid_local_file, LocalFileDownloader};
 pub use napcat_stream::{download_via_napcat_stream, save_to_local, NapCatStreamDownloader};
 pub use types::{
-    DownloadConfig, DownloadStrategy, FileType, MediaType, NapCatMediaApi, UrlDetectionResult, UrlType,
+    DownloadConfig, DownloadStrategy, FileType, MediaType, NapCatMediaApi, UrlDetectionResult,
+    UrlType,
 };
 
 use blockcell_core::config::NapCatConfig;
@@ -132,38 +133,66 @@ pub async fn process_media_segments(
 
     for segment in segments.iter() {
         let (url, media_type, filename, size) = match segment {
-            MessageSegment::Image { file, file_size, .. } => {
+            MessageSegment::Image {
+                file, file_size, ..
+            } => {
                 let request = ApiRequest::get_image(Some(file), None, None);
                 match get_media_url_from_api(config, request).await {
-                    Some((url, api_filename)) => (url, MediaType::Image, api_filename, file_size.unwrap_or(0) as usize),
+                    Some((url, api_filename)) => (
+                        url,
+                        MediaType::Image,
+                        api_filename,
+                        file_size.unwrap_or(0) as usize,
+                    ),
                     None => {
                         warn!(file = %file, "Failed to get image URL from API, skipping");
                         continue;
                     }
                 }
             }
-            MessageSegment::Record { file, file_size, .. } => {
+            MessageSegment::Record {
+                file, file_size, ..
+            } => {
                 // For get_record, out_format is required. Use "mp3" as default.
                 let request = ApiRequest::get_record(Some(file), None, "mp3", None);
                 match get_media_url_from_api(config, request).await {
-                    Some((url, api_filename)) => (url, MediaType::Voice, api_filename, file_size.unwrap_or(0) as usize),
+                    Some((url, api_filename)) => (
+                        url,
+                        MediaType::Voice,
+                        api_filename,
+                        file_size.unwrap_or(0) as usize,
+                    ),
                     None => {
                         warn!(file = %file, "Failed to get record URL from API, skipping");
                         continue;
                     }
                 }
             }
-            MessageSegment::Video { file, file_size, .. } => {
+            MessageSegment::Video {
+                file, file_size, ..
+            } => {
                 let request = ApiRequest::get_video(file, None);
                 match get_media_url_from_api(config, request).await {
-                    Some((url, api_filename)) => (url, MediaType::Video, api_filename, file_size.unwrap_or(0) as usize),
+                    Some((url, api_filename)) => (
+                        url,
+                        MediaType::Video,
+                        api_filename,
+                        file_size.unwrap_or(0) as usize,
+                    ),
                     None => {
                         warn!(file = %file, "Failed to get video URL from API, skipping");
                         continue;
                     }
                 }
             }
-            MessageSegment::File { file, file_id, url: msg_url, name, size, .. } => {
+            MessageSegment::File {
+                file,
+                file_id,
+                url: msg_url,
+                name,
+                size,
+                ..
+            } => {
                 // Determine if this is a private chat
                 let is_private = chat_id.starts_with("user:");
                 let user_id = if is_private {
@@ -287,7 +316,10 @@ pub async fn process_media_segments(
 
 /// Call NapCat API to get the correct media URL.
 /// Returns (url, filename) where filename is the original filename if available.
-async fn get_media_url_from_api(_config: &NapCatConfig, request: ApiRequest) -> Option<(String, Option<String>)> {
+async fn get_media_url_from_api(
+    _config: &NapCatConfig,
+    request: ApiRequest,
+) -> Option<(String, Option<String>)> {
     let action = request.action.clone();
 
     let response: std::result::Result<ApiResponse, String> = if is_ws_api_available() {
@@ -299,9 +331,17 @@ async fn get_media_url_from_api(_config: &NapCatConfig, request: ApiRequest) -> 
 
     match response {
         Ok(resp) if resp.is_success() => {
-            let url = resp.data.get("url").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let url = resp
+                .data
+                .get("url")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
             // Try to get filename from file_name field (NapCat specific)
-            let filename = resp.data.get("file_name").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let filename = resp
+                .data
+                .get("file_name")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
             url.map(|u| (u, filename))
         }
         Ok(resp) => {
@@ -333,7 +373,9 @@ async fn get_private_file_url_from_api(
     user_id: &str,
 ) -> Option<String> {
     let request = ApiRequest::get_private_file_url(file_id, Some(user_id), None);
-    get_media_url_from_api(config, request).await.map(|(url, _)| url)
+    get_media_url_from_api(config, request)
+        .await
+        .map(|(url, _)| url)
 }
 
 /// Build enhanced message content with downloaded media info.
@@ -401,7 +443,10 @@ pub fn build_enhanced_content(
             // Detect and report file type
             let file_type = FileType::from_filename(name);
             let type_desc = file_type.description();
-            content.push_str(&format!("- {} [{}] (路径: {})\n", name, type_desc, file.local_path));
+            content.push_str(&format!(
+                "- {} [{}] (路径: {})\n",
+                name, type_desc, file.local_path
+            ));
         }
         content.push('\n');
     }
@@ -415,7 +460,8 @@ pub fn build_enhanced_content(
     content.push_str("  - 不要使用任何 napcat 发送工具（如 send_image、upload_file 等）\n");
     content.push_str("  - 不要将文件路径放入任何发送消息的工具参数中\n");
     content.push_str("  - 只需用文字回复用户即可，不要重复发送已有媒体\n");
-    content.push_str("用户如果需要你处理这些文件（如分析、识别、转写等），请使用相应的工具处理。\n");
+    content
+        .push_str("用户如果需要你处理这些文件（如分析、识别、转写等），请使用相应的工具处理。\n");
 
     content
 }
@@ -464,7 +510,8 @@ pub async fn download_media_unified(
     workspace: &str,
     chat_id: &str,
 ) -> Result<UnifiedDownloadResult> {
-    let request = UnifiedDownloadRequest::new(source, media_type, config.clone(), workspace, chat_id);
+    let request =
+        UnifiedDownloadRequest::new(source, media_type, config.clone(), workspace, chat_id);
 
     let manager = DownloaderManager::new(config);
     manager.download(request).await
@@ -481,8 +528,9 @@ pub async fn download_media_with_filename(
     workspace: &str,
     chat_id: &str,
 ) -> Result<UnifiedDownloadResult> {
-    let request = UnifiedDownloadRequest::new(source, media_type, config.clone(), workspace, chat_id)
-        .with_filename(filename);
+    let request =
+        UnifiedDownloadRequest::new(source, media_type, config.clone(), workspace, chat_id)
+            .with_filename(filename);
 
     let manager = DownloaderManager::new(config);
     manager.download(request).await

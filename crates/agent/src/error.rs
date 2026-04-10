@@ -39,10 +39,7 @@ pub(crate) fn disabled_tool_result(tool_name: &str) -> String {
 pub(crate) fn disabled_skill_result(skill_name: &str) -> String {
     tool_denied_json(
         skill_name,
-        &format!(
-            "Skill '{}' is currently disabled via toggles.",
-            skill_name
-        ),
+        &format!("Skill '{}' is currently disabled via toggles.", skill_name),
         "This skill has been disabled by the user. Use toggle_manage to re-enable it.",
     )
 }

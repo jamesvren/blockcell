@@ -1,5 +1,4 @@
 pub mod agent_status;
-pub mod session_recall;
 pub mod alert_rule;
 pub mod app_control;
 pub mod audio_transcribe;
@@ -32,6 +31,7 @@ pub mod office;
 pub mod office_write;
 pub mod registry;
 pub mod registry_builder;
+pub mod session_recall;
 pub mod skills;
 pub mod spawn;
 pub mod stream_subscribe;

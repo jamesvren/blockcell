@@ -426,7 +426,10 @@ impl EvolutionService {
                         continue;
                     }
                     let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                    if matches!(file_name, "SKILL.md" | "SKILL.py" | "SKILL.rhai" | "meta.yaml" | "meta.json") {
+                    if matches!(
+                        file_name,
+                        "SKILL.md" | "SKILL.py" | "SKILL.rhai" | "meta.yaml" | "meta.json"
+                    ) {
                         continue;
                     }
                     let ext_ok = path
@@ -554,12 +557,7 @@ impl EvolutionService {
                 SkillLayout::LocalScript
             };
 
-            return (
-                layout,
-                SkillType::LocalScript,
-                Some(snippet),
-                Some(rel),
-            );
+            return (layout, SkillType::LocalScript, Some(snippet), Some(rel));
         }
 
         let md_path = skill_dir.join("SKILL.md");
@@ -692,7 +690,8 @@ impl EvolutionService {
             .unwrap_or_else(|_| "unknown".to_string());
 
         // 检测技能布局（支持 PromptTool / LocalScript / Hybrid / RhaiOrchestration）
-        let (layout, skill_type, inferred_source_snippet, source_path) = self.detect_skill_layout(skill_name);
+        let (layout, skill_type, inferred_source_snippet, source_path) =
+            self.detect_skill_layout(skill_name);
         let source_snippet = source_snippet.or(inferred_source_snippet);
 
         let context = EvolutionContext {
@@ -871,12 +870,11 @@ impl EvolutionService {
             let record = self.evolution.load_record(evolution_id)?;
             if record.status == EvolutionStatus::Generated {
                 if let Some(ref patch) = record.patch {
-                    let static_result = crate::audit::static_audit(
-                        &record.context.skill_type,
-                        &patch.diff,
-                    );
+                    let static_result =
+                        crate::audit::static_audit(&record.context.skill_type, &patch.diff);
                     if !static_result.passed {
-                        let feedback_text = crate::audit::format_static_audit_feedback(&static_result);
+                        let feedback_text =
+                            crate::audit::format_static_audit_feedback(&static_result);
                         warn!(
                             evolution_id = %evolution_id,
                             violations = static_result.violations.len(),
@@ -898,7 +896,9 @@ impl EvolutionService {
                         continue;
                     }
                     // Log warnings even if passed
-                    let warnings: Vec<_> = static_result.violations.iter()
+                    let warnings: Vec<_> = static_result
+                        .violations
+                        .iter()
                         .filter(|v| v.severity == "warning")
                         .collect();
                     if !warnings.is_empty() {
@@ -1002,10 +1002,12 @@ impl EvolutionService {
             let record = self.evolution.load_record(evolution_id)?;
             if record.status.is_compile_passed() {
                 info!(evolution_id = %evolution_id, "🧠 [pipeline] ═══ Contract check (attempt {}) ═══", attempt);
-                let (contract_passed, contract_error) = self.evolution.contract_check(evolution_id)?;
+                let (contract_passed, contract_error) =
+                    self.evolution.contract_check(evolution_id)?;
 
                 if !contract_passed {
-                    let error_msg = contract_error.unwrap_or_else(|| "Unknown contract violation".to_string());
+                    let error_msg =
+                        contract_error.unwrap_or_else(|| "Unknown contract violation".to_string());
                     warn!(
                         evolution_id = %evolution_id,
                         "🧠 [pipeline] Contract check FAILED: {}, will regenerate with feedback",
@@ -1431,8 +1433,14 @@ impl EvolutionService {
             record
                 .feedback_history
                 .iter()
-                .map(|f| format!("  - Attempt #{} ({}): {}", f.attempt, f.stage,
-                    f.feedback.chars().take(100).collect::<String>()))
+                .map(|f| {
+                    format!(
+                        "  - Attempt #{} ({}): {}",
+                        f.attempt,
+                        f.stage,
+                        f.feedback.chars().take(100).collect::<String>()
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join("\n")
         };
@@ -1467,7 +1475,8 @@ impl EvolutionService {
                     f.write_all(entry.as_bytes())
                 })
         } else {
-            let header = "# Evolution History\n\nAutomatically recorded successful evolution fixes.\n";
+            let header =
+                "# Evolution History\n\nAutomatically recorded successful evolution fixes.\n";
             let content = format!("{}{}", header, entry);
             std::fs::write(&evolution_md_path, content)
         };
@@ -1704,7 +1713,8 @@ impl EvolutionService {
             .unwrap_or_else(|_| "0.0.0".to_string());
 
         // 检测技能布局（支持 PromptTool / LocalScript / Hybrid / RhaiOrchestration）
-        let (layout, skill_type, source_snippet, source_path) = self.detect_skill_layout(skill_name);
+        let (layout, skill_type, source_snippet, source_path) =
+            self.detect_skill_layout(skill_name);
 
         let context = EvolutionContext {
             skill_name: skill_name.to_string(),
@@ -2050,7 +2060,8 @@ mod tests {
         );
 
         let service = make_service(skills_dir);
-        let (layout, skill_type, snippet, source_path) = service.detect_skill_layout("analyzer_plus");
+        let (layout, skill_type, snippet, source_path) =
+            service.detect_skill_layout("analyzer_plus");
 
         assert_eq!(layout, SkillLayout::Hybrid);
         assert_eq!(skill_type, SkillType::Python);
@@ -2094,7 +2105,8 @@ mod tests {
         );
 
         let service = make_service(skills_dir);
-        let (layout, skill_type, snippet, source_path) = service.detect_skill_layout("orchestrator");
+        let (layout, skill_type, snippet, source_path) =
+            service.detect_skill_layout("orchestrator");
 
         assert_eq!(layout, SkillLayout::RhaiOrchestration);
         assert_eq!(skill_type, SkillType::Rhai);

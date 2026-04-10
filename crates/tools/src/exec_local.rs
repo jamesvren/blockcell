@@ -150,9 +150,9 @@ impl Tool for ExecLocalTool {
                 "`exec_local` is only available inside an active skill execution scope".to_string(),
             )
         })?;
-        let relative_path = params["path"].as_str().ok_or_else(|| {
-            Error::Validation("Missing required parameter: path".to_string())
-        })?;
+        let relative_path = params["path"]
+            .as_str()
+            .ok_or_else(|| Error::Validation("Missing required parameter: path".to_string()))?;
         let resolved_path = resolve_script_path(&skill_dir, relative_path)?;
         let runner = params.get("runner").and_then(|value| value.as_str());
         if let Some(runner) = runner {
@@ -312,7 +312,10 @@ mod tests {
         let expected_path = script_path.canonicalize().expect("canonical path");
 
         assert_eq!(result["exit_code"].as_i64(), Some(0));
-        assert!(result["stdout"].as_str().unwrap_or_default().contains("hello world"));
+        assert!(result["stdout"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("hello world"));
         assert_eq!(
             result["resolved_path"].as_str(),
             Some(expected_path.to_string_lossy().as_ref())
@@ -346,7 +349,10 @@ mod tests {
         let expected_path = script_path.canonicalize().expect("canonical path");
 
         assert_eq!(result["exit_code"].as_i64(), Some(0));
-        assert!(result["stdout"].as_str().unwrap_or_default().contains("py:demo-local"));
+        assert!(result["stdout"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("py:demo-local"));
         assert_eq!(
             result["resolved_path"].as_str(),
             Some(expected_path.to_string_lossy().as_ref())

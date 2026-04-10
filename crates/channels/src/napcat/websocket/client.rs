@@ -18,16 +18,18 @@ use tracing::{error, info, warn};
 
 use blockcell_core::{Config, Error, InboundMessage, Result};
 
-use super::super::media::{process_media_segments, build_enhanced_content, build_media_metadata};
+use super::super::media::{build_enhanced_content, build_media_metadata, process_media_segments};
 
-use crate::account::napcat_account_id;
 use super::super::event::{
-    MessageEvent, GroupRecallEvent, GroupIncreaseEvent, GroupDecreaseEvent,
-    GroupAdminEvent, GroupBanEvent, PokeEvent, FriendAddEvent,
-    FriendRequestEvent, GroupRequestEvent,
+    FriendAddEvent, FriendRequestEvent, GroupAdminEvent, GroupBanEvent, GroupDecreaseEvent,
+    GroupIncreaseEvent, GroupRecallEvent, GroupRequestEvent, MessageEvent, PokeEvent,
 };
-use super::sender::{init_sender, init_api_caller, init_stream_caller, OutboundMessage, ApiCallRequest, StreamCallRequest};
 use super::super::types::{ApiRequest, ApiResponse, StreamChunkData};
+use super::sender::{
+    init_api_caller, init_sender, init_stream_caller, ApiCallRequest, OutboundMessage,
+    StreamCallRequest,
+};
+use crate::account::napcat_account_id;
 
 /// Message deduplication cache.
 static DEDUP_CACHE: std::sync::OnceLock<Mutex<std::collections::HashSet<String>>> =
@@ -114,7 +116,10 @@ impl NapCatWsClient {
             return true;
         }
 
-        napcat.allow_groups.iter().any(|g| g == group_id || g == "*")
+        napcat
+            .allow_groups
+            .iter()
+            .any(|g| g == group_id || g == "*")
     }
 
     /// Check if should respond to a group message based on response mode.
@@ -175,12 +180,8 @@ impl NapCatWsClient {
         // Auto-download media if configured
         let workspace = &self.config.agents.defaults.workspace;
         let napcat_config = &self.config.channels.napcat;
-        let downloaded = process_media_segments(
-            napcat_config,
-            segments,
-            &chat_id,
-            workspace,
-        ).await?;
+        let downloaded =
+            process_media_segments(napcat_config, segments, &chat_id, workspace).await?;
 
         // Build enhanced content with downloaded media info
         let content = build_enhanced_content(&original_text, &downloaded, &chat_id);
@@ -521,7 +522,11 @@ impl NapCatWsClient {
             content: format!(
                 "[系统] 好友请求: 用户 {} 请求添加好友. 验证信息: {}",
                 event.user_id,
-                if event.comment.is_empty() { "无" } else { &event.comment }
+                if event.comment.is_empty() {
+                    "无"
+                } else {
+                    &event.comment
+                }
             ),
             media: vec![],
             metadata: serde_json::json!({
@@ -562,7 +567,11 @@ impl NapCatWsClient {
                 event.user_id,
                 action,
                 event.group_id,
-                if event.comment.is_empty() { "无" } else { &event.comment }
+                if event.comment.is_empty() {
+                    "无"
+                } else {
+                    &event.comment
+                }
             ),
             media: vec![],
             metadata: serde_json::json!({
@@ -583,7 +592,10 @@ impl NapCatWsClient {
     async fn handle_ws_message(self: &Arc<Self>, text: &str) {
         // Try to parse as event
         if let Ok(event) = serde_json::from_str::<Value>(text) {
-            let post_type = event.get("post_type").and_then(|v| v.as_str()).unwrap_or("");
+            let post_type = event
+                .get("post_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             match post_type {
                 "message" => {
@@ -598,7 +610,8 @@ impl NapCatWsClient {
                             }
                         });
                     } else {
-                        let parse_error = serde_json::from_value::<MessageEvent>(event.clone()).unwrap_err();
+                        let parse_error =
+                            serde_json::from_value::<MessageEvent>(event.clone()).unwrap_err();
                         warn!(
                             error = %parse_error,
                             raw_json = %serde_json::to_string(&event).unwrap_or_else(|_| "serialize error".to_string()),
@@ -607,43 +620,58 @@ impl NapCatWsClient {
                     }
                 }
                 "notice" => {
-                    let notice_type = event.get("notice_type").and_then(|v| v.as_str()).unwrap_or("");
+                    let notice_type = event
+                        .get("notice_type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
                     match notice_type {
                         "group_recall" => {
-                            if let Ok(recall) = serde_json::from_value::<GroupRecallEvent>(event.clone()) {
+                            if let Ok(recall) =
+                                serde_json::from_value::<GroupRecallEvent>(event.clone())
+                            {
                                 self.handle_group_recall(&recall).await;
                             }
                         }
                         "group_increase" => {
-                            if let Ok(increase) = serde_json::from_value::<GroupIncreaseEvent>(event.clone()) {
+                            if let Ok(increase) =
+                                serde_json::from_value::<GroupIncreaseEvent>(event.clone())
+                            {
                                 self.handle_group_increase(&increase).await;
                             }
                         }
                         "group_decrease" => {
-                            if let Ok(decrease) = serde_json::from_value::<GroupDecreaseEvent>(event.clone()) {
+                            if let Ok(decrease) =
+                                serde_json::from_value::<GroupDecreaseEvent>(event.clone())
+                            {
                                 self.handle_group_decrease(&decrease).await;
                             }
                         }
                         "group_admin" => {
-                            if let Ok(admin) = serde_json::from_value::<GroupAdminEvent>(event.clone()) {
+                            if let Ok(admin) =
+                                serde_json::from_value::<GroupAdminEvent>(event.clone())
+                            {
                                 self.handle_group_admin(&admin).await;
                             }
                         }
                         "group_ban" => {
-                            if let Ok(ban) = serde_json::from_value::<GroupBanEvent>(event.clone()) {
+                            if let Ok(ban) = serde_json::from_value::<GroupBanEvent>(event.clone())
+                            {
                                 self.handle_group_ban(&ban).await;
                             }
                         }
                         "friend_add" => {
-                            if let Ok(add) = serde_json::from_value::<FriendAddEvent>(event.clone()) {
+                            if let Ok(add) = serde_json::from_value::<FriendAddEvent>(event.clone())
+                            {
                                 self.handle_friend_add(&add).await;
                             }
                         }
                         "notify" => {
                             // Check sub_type for poke
-                            let sub_type = event.get("sub_type").and_then(|v| v.as_str()).unwrap_or("");
+                            let sub_type =
+                                event.get("sub_type").and_then(|v| v.as_str()).unwrap_or("");
                             if sub_type == "poke" {
-                                if let Ok(poke) = serde_json::from_value::<PokeEvent>(event.clone()) {
+                                if let Ok(poke) = serde_json::from_value::<PokeEvent>(event.clone())
+                                {
                                     self.handle_poke(&poke).await;
                                 }
                             } else {
@@ -656,15 +684,22 @@ impl NapCatWsClient {
                     }
                 }
                 "request" => {
-                    let request_type = event.get("request_type").and_then(|v| v.as_str()).unwrap_or("");
+                    let request_type = event
+                        .get("request_type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
                     match request_type {
                         "friend" => {
-                            if let Ok(friend_req) = serde_json::from_value::<FriendRequestEvent>(event.clone()) {
+                            if let Ok(friend_req) =
+                                serde_json::from_value::<FriendRequestEvent>(event.clone())
+                            {
                                 self.handle_friend_request(&friend_req).await;
                             }
                         }
                         "group" => {
-                            if let Ok(group_req) = serde_json::from_value::<GroupRequestEvent>(event.clone()) {
+                            if let Ok(group_req) =
+                                serde_json::from_value::<GroupRequestEvent>(event.clone())
+                            {
                                 self.handle_group_request(&group_req).await;
                             }
                         }
@@ -678,7 +713,8 @@ impl NapCatWsClient {
                         .unwrap_or("");
                     match meta_type {
                         "lifecycle" => {
-                            let sub_type = event.get("sub_type").and_then(|v| v.as_str()).unwrap_or("");
+                            let sub_type =
+                                event.get("sub_type").and_then(|v| v.as_str()).unwrap_or("");
                             info!("NapCatQQ lifecycle event: {}", sub_type);
                         }
                         "heartbeat" => {}
@@ -709,9 +745,8 @@ impl NapCatWsClient {
                                 }
                             } else {
                                 // Try to find by echo placeholder (keys starting with "stream_")
-                                let placeholder_key = active.keys()
-                                    .find(|k| k.starts_with("stream_"))
-                                    .cloned();
+                                let placeholder_key =
+                                    active.keys().find(|k| k.starts_with("stream_")).cloned();
 
                                 if let Some(key) = placeholder_key {
                                     if let Some(tx) = active.get(&key) {
@@ -737,13 +772,17 @@ impl NapCatWsClient {
                     // Not a stream chunk - handle as normal API response
                     // Extract echo - it could be a string or a number
                     let echo = event.get("echo").and_then(|v| {
-                        v.as_str().map(|s| s.to_string()).or_else(|| v.as_i64().map(|n| n.to_string()))
+                        v.as_str()
+                            .map(|s| s.to_string())
+                            .or_else(|| v.as_i64().map(|n| n.to_string()))
                     });
 
                     if let Some(echo) = echo {
                         let mut pending = self.pending_requests.lock().await;
                         if let Some(tx) = pending.remove(&echo) {
-                            if let Ok(response) = serde_json::from_value::<ApiResponse>(event.clone()) {
+                            if let Ok(response) =
+                                serde_json::from_value::<ApiResponse>(event.clone())
+                            {
                                 let _ = tx.send(response);
                             }
                         }
@@ -824,12 +863,20 @@ impl NapCatWsClient {
                 Ok(mut req) => {
                     // Also add Authorization header for compatibility with OneBot 11 spec
                     if !access_token.is_empty() {
-                        if let Ok(auth_value) = HeaderValue::from_str(&format!("Bearer {}", access_token)) {
+                        if let Ok(auth_value) =
+                            HeaderValue::from_str(&format!("Bearer {}", access_token))
+                        {
                             req.headers_mut().insert("Authorization", auth_value);
                         }
-                        info!("Connecting to NapCatQQ WebSocket server: {} (with token)", ws_url);
+                        info!(
+                            "Connecting to NapCatQQ WebSocket server: {} (with token)",
+                            ws_url
+                        );
                     } else {
-                        info!("Connecting to NapCatQQ WebSocket server: {} (no token)", ws_url);
+                        info!(
+                            "Connecting to NapCatQQ WebSocket server: {} (no token)",
+                            ws_url
+                        );
                     }
                     req
                 }
@@ -854,9 +901,8 @@ impl NapCatWsClient {
                     }
 
                     // Heartbeat timer
-                    let mut heartbeat_timer = tokio::time::interval(Duration::from_secs(
-                        heartbeat_interval as u64,
-                    ));
+                    let mut heartbeat_timer =
+                        tokio::time::interval(Duration::from_secs(heartbeat_interval as u64));
                     heartbeat_timer
                         .set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
@@ -1068,10 +1114,11 @@ impl NapCatWsClient {
                 }
                 Err(e) => {
                     // Provide detailed error message with troubleshooting hints
-                    let error_hint = match &e {
-                        tokio_tungstenite::tungstenite::Error::Http(response) => {
-                            let status = response.status();
-                            match status.as_u16() {
+                    let error_hint =
+                        match &e {
+                            tokio_tungstenite::tungstenite::Error::Http(response) => {
+                                let status = response.status();
+                                match status.as_u16() {
                                 400 => "HTTP 400 Bad Request. Possible causes:\n\
                                     1. access_token mismatch (check NapCatQQ config)\n\
                                     2. Invalid WebSocket endpoint path\n\
@@ -1088,9 +1135,9 @@ impl NapCatWsClient {
                                     status.canonical_reason().unwrap_or("Unknown")
                                 ),
                             }
-                        }
-                        tokio_tungstenite::tungstenite::Error::Io(io_err) => {
-                            match io_err.kind() {
+                            }
+                            tokio_tungstenite::tungstenite::Error::Io(io_err) => {
+                                match io_err.kind() {
                                 std::io::ErrorKind::ConnectionRefused => format!(
                                     "Connection refused. Is NapCatQQ running at {}?\n\
                                     Check: 1) NapCatQQ is started 2) WebSocket is enabled 3) Port is correct",
@@ -1102,10 +1149,13 @@ impl NapCatWsClient {
                                 ),
                                 _ => format!("IO error: {}", io_err),
                             }
-                        }
-                        _ => e.to_string(),
-                    };
-                    error!("Failed to connect to NapCatQQ WebSocket: {}\n{}", e, error_hint);
+                            }
+                            _ => e.to_string(),
+                        };
+                    error!(
+                        "Failed to connect to NapCatQQ WebSocket: {}\n{}",
+                        e, error_hint
+                    );
                 }
             }
 
@@ -1149,9 +1199,7 @@ impl NapCatWsClient {
             ws_tx_guard.clone()
         };
 
-        let ws_tx = ws_tx.ok_or_else(|| {
-            Error::Channel("WebSocket not connected".to_string())
-        })?;
+        let ws_tx = ws_tx.ok_or_else(|| Error::Channel("WebSocket not connected".to_string()))?;
 
         // Send request
         let request_json = serde_json::to_string(&ApiRequest {
@@ -1202,11 +1250,7 @@ impl NapCatWsClient {
     }
 
     /// Send a group message via WebSocket.
-    pub async fn send_group_msg(
-        &self,
-        group_id: &str,
-        message: &serde_json::Value,
-    ) -> Result<i64> {
+    pub async fn send_group_msg(&self, group_id: &str, message: &serde_json::Value) -> Result<i64> {
         let request = ApiRequest::send_group_msg(group_id, message, None, None);
         let response = self.call_api(request).await?;
         if !response.is_success() {
@@ -1297,12 +1341,7 @@ impl NapCatWsClient {
     // =========================================================================
 
     /// Set group admin via WebSocket.
-    pub async fn set_group_admin(
-        &self,
-        group_id: &str,
-        user_id: &str,
-        enable: bool,
-    ) -> Result<()> {
+    pub async fn set_group_admin(&self, group_id: &str, user_id: &str, enable: bool) -> Result<()> {
         let request = ApiRequest::set_group_admin(group_id, user_id, enable, None);
         let response = self.call_api(request).await?;
         if !response.is_success() {
@@ -1315,12 +1354,7 @@ impl NapCatWsClient {
     }
 
     /// Set group card via WebSocket.
-    pub async fn set_group_card(
-        &self,
-        group_id: &str,
-        user_id: &str,
-        card: &str,
-    ) -> Result<()> {
+    pub async fn set_group_card(&self, group_id: &str, user_id: &str, card: &str) -> Result<()> {
         let request = ApiRequest::set_group_card(group_id, user_id, card, None);
         let response = self.call_api(request).await?;
         if !response.is_success() {
@@ -1392,12 +1426,7 @@ impl NapCatWsClient {
     }
 
     /// Set group ban via WebSocket.
-    pub async fn set_group_ban(
-        &self,
-        group_id: &str,
-        user_id: &str,
-        duration: u32,
-    ) -> Result<()> {
+    pub async fn set_group_ban(&self, group_id: &str, user_id: &str, duration: u32) -> Result<()> {
         let request = ApiRequest::set_group_ban(group_id, user_id, duration, None);
         let response = self.call_api(request).await?;
         if !response.is_success() {
@@ -1536,10 +1565,7 @@ impl NapCatWsClient {
     }
 
     /// Get group file system info via WebSocket.
-    pub async fn get_group_file_system_info(
-        &self,
-        group_id: &str,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_group_file_system_info(&self, group_id: &str) -> Result<serde_json::Value> {
         let request = ApiRequest::get_group_file_system_info(group_id, None);
         let response = self.call_api(request).await?;
         if !response.is_success() {
